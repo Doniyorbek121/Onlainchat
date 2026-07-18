@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserId } from "@/lib/session";
+import { getCurrentUser } from "@/lib/auth";
 import { createCharacter, listCharacters } from "@/lib/db";
 import { CATEGORIES, AVATAR_COLORS, AVATAR_EMOJIS } from "@/lib/types";
 
@@ -20,7 +20,13 @@ function str(v: unknown, max: number): string {
 }
 
 export async function POST(req: NextRequest) {
-  const userId = await getUserId();
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json(
+      { error: "You must be signed in to create a character." },
+      { status: 401 }
+    );
+  }
 
   let body: Record<string, unknown>;
   try {
@@ -49,8 +55,6 @@ export async function POST(req: NextRequest) {
     ? str(body.avatarColor, 9)
     : AVATAR_COLORS[0];
 
-  const creatorName = str(body.creatorName, 40) || "Anonymous";
-
   const character = createCharacter({
     name,
     tagline: str(body.tagline, 120),
@@ -61,8 +65,8 @@ export async function POST(req: NextRequest) {
     avatarColor,
     category,
     visibility: body.visibility === "private" ? "private" : "public",
-    creatorId: userId,
-    creatorName,
+    creatorId: user.id,
+    creatorName: user.displayName || user.username,
   });
 
   return NextResponse.json({ character }, { status: 201 });

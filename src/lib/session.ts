@@ -1,12 +1,18 @@
 import { cookies } from "next/headers";
+import { getCurrentUser } from "./auth";
 
 const COOKIE = "oc_uid";
 
 /**
- * Returns the anonymous user id from the cookie, creating one if needed.
- * Used inside Server Components / Route Handlers where writing cookies is allowed.
+ * Resolves the effective owner id for the current request:
+ *   - the authenticated user's id when signed in, otherwise
+ *   - an anonymous, cookie-based id (created on demand).
+ * Use inside Route Handlers / Server Components where cookie writes are allowed.
  */
 export async function getUserId(): Promise<string> {
+  const user = await getCurrentUser();
+  if (user) return user.id;
+
   const store = await cookies();
   let uid = store.get(COOKIE)?.value;
   if (!uid) {
@@ -23,6 +29,14 @@ export async function getUserId(): Promise<string> {
 
 /** Read-only variant for Server Components that cannot mutate cookies. */
 export async function peekUserId(): Promise<string | null> {
+  const user = await getCurrentUser();
+  if (user) return user.id;
+  const store = await cookies();
+  return store.get(COOKIE)?.value ?? null;
+}
+
+/** The anonymous id from the cookie, if any (used to migrate data on login). */
+export async function peekAnonId(): Promise<string | null> {
   const store = await cookies();
   return store.get(COOKIE)?.value ?? null;
 }

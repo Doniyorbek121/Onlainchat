@@ -6,6 +6,7 @@ import type {
   Conversation,
   Message,
   MessageRole,
+  User,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -51,6 +52,24 @@ const db = new Proxy({} as Database.Database, {
 
 function migrate(database: Database.Database) {
   database.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id            TEXT PRIMARY KEY,
+      username      TEXT NOT NULL UNIQUE,
+      email         TEXT NOT NULL UNIQUE,
+      display_name  TEXT NOT NULL DEFAULT '',
+      password_hash TEXT NOT NULL,
+      created_at    INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS sessions (
+      token      TEXT PRIMARY KEY,
+      user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+
     CREATE TABLE IF NOT EXISTS characters (
       id            TEXT PRIMARY KEY,
       name          TEXT NOT NULL,
@@ -140,6 +159,110 @@ function mapMessage(r: any): Message {
 
 const id = () =>
   `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+
+// ---------------------------------------------------------------------------
+// User & session queries
+// ---------------------------------------------------------------------------
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function mapUser(r: any): User {
+  return {
+    id: r.id,
+    username: r.username,
+    email: r.email,
+    displayName: r.display_name,
+    createdAt: r.created_at,
+  };
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+export function createUser(input: {
+  username: string;
+  email: string;
+  displayName: string;
+  passwordHash: string;
+}): User {
+  const row = {
+    id: `user_${id()}`,
+    username: input.username,
+    email: input.email,
+    displayName: input.displayName || input.username,
+    passwordHash: input.passwordHash,
+    createdAt: Date.now(),
+  };
+  db.prepare(
+    `INSERT INTO users (id, username, email, display_name, password_hash, created_at)
+     VALUES (@id, @username, @email, @displayName, @passwordHash, @createdAt)`
+  ).run(row);
+  return getUserById(row.id)!;
+}
+
+export function getUserById(userId: string): User | null {
+  const r = db.prepare(`SELECT * FROM users WHERE id = ?`).get(userId);
+  return r ? mapUser(r) : null;
+}
+
+/** Returns the user row including the stored password hash (auth use only). */
+export function getUserAuthByLogin(
+  login: string
+): { user: User; passwordHash: string } | null {
+  const r = db
+    .prepare(
+      `SELECT * FROM users WHERE lower(email) = lower(?) OR lower(username) = lower(?)`
+    )
+    .get(login, login) as { password_hash: string } | undefined;
+  return r ? { user: mapUser(r), passwordHash: r.password_hash } : null;
+}
+
+export function userExists(username: string, email: string): boolean {
+  const r = db
+    .prepare(
+      `SELECT 1 FROM users WHERE lower(username) = lower(?) OR lower(email) = lower(?) LIMIT 1`
+    )
+    .get(username, email);
+  return Boolean(r);
+}
+
+export function createSession(userId: string, ttlMs: number): string {
+  const token = `${id()}${id()}`;
+  const now = Date.now();
+  db.prepare(
+    `INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)`
+  ).run(token, userId, now, now + ttlMs);
+  return token;
+}
+
+export function getSessionUser(token: string): User | null {
+  const r = db
+    .prepare(`SELECT user_id, expires_at FROM sessions WHERE token = ?`)
+    .get(token) as { user_id: string; expires_at: number } | undefined;
+  if (!r) return null;
+  if (r.expires_at < Date.now()) {
+    deleteSession(token);
+    return null;
+  }
+  return getUserById(r.user_id);
+}
+
+export function deleteSession(token: string) {
+  db.prepare(`DELETE FROM sessions WHERE token = ?`).run(token);
+}
+
+/** Moves characters & conversations from an anonymous id to a real user. */
+export function reassignOwnership(fromId: string, toId: string) {
+  if (fromId === toId) return;
+  const tx = db.transaction(() => {
+    db.prepare(`UPDATE characters SET creator_id = ? WHERE creator_id = ?`).run(
+      toId,
+      fromId
+    );
+    db.prepare(`UPDATE conversations SET user_id = ? WHERE user_id = ?`).run(
+      toId,
+      fromId
+    );
+  });
+  tx();
+}
 
 // ---------------------------------------------------------------------------
 // Character queries

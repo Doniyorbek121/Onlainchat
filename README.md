@@ -10,6 +10,9 @@ Built as a complete, self-contained full-stack app inspired by projects like
 
 ## Features
 
+- 🔐 **Real accounts** — email/username registration & login, secure `scrypt`
+  password hashing, server-side sessions (30-day cookie), and one-click logout.
+  Chats you start while signed out are migrated into your account on sign-up.
 - 🧭 **Discovery** — browse trending characters, filter by category, and search.
 - 💬 **Real-time chat** — token-by-token streaming replies, persisted history,
   auto-resume of past conversations.
@@ -61,20 +64,25 @@ characters reply with placeholder text.
 src/
   app/
     page.tsx                  Discovery / home
-    create/                   Character creator
+    login/  register/         Auth screens
+    create/                   Character creator (requires sign-in)
     chat/[characterId]/       Chat screen
     character/[id]/           Character profile
     library/                  My chats
     api/
+      auth/                   Register / login / logout
       chat/                   Streaming chat (SSE)
       characters/             Create / list / delete characters
       conversations/[id]/     Delete a conversation
-  components/                 Avatar, TopBar, CharacterCard, Discovery, ChatRoom
+  components/                 Avatar, TopBar, UserMenu, AuthForm,
+                              CharacterCard, Discovery, ChatRoom,
+                              CreateCharacterForm
   lib/
-    db.ts                     SQLite data layer
+    db.ts                     SQLite data layer (users, sessions, characters…)
+    auth.ts                   Password hashing + session auth
     anthropic.ts              Claude integration + streaming
     seed.ts                   Starter characters
-    session.ts                Anonymous cookie sessions
+    session.ts                Auth-aware / anonymous cookie sessions
     types.ts                  Shared types
 ```
 

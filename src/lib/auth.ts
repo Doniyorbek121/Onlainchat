@@ -1,0 +1,120 @@
+import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { cookies } from "next/headers";
+import {
+  createUser,
+  createSession,
+  getSessionUser,
+  deleteSession,
+  getUserAuthByLogin,
+  userExists,
+} from "./db";
+import type { User } from "./types";
+
+const SESSION_COOKIE = "oc_session";
+const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30; // 30 days
+
+// ---------------------------------------------------------------------------
+// Password hashing (scrypt — no native deps)
+// ---------------------------------------------------------------------------
+
+export function hashPassword(password: string): string {
+  const salt = randomBytes(16).toString("hex");
+  const derived = scryptSync(password, salt, 64).toString("hex");
+  return `${salt}:${derived}`;
+}
+
+export function verifyPassword(password: string, stored: string): boolean {
+  const [salt, hash] = stored.split(":");
+  if (!salt || !hash) return false;
+  const hashBuf = Buffer.from(hash, "hex");
+  const testBuf = scryptSync(password, salt, 64);
+  return hashBuf.length === testBuf.length && timingSafeEqual(hashBuf, testBuf);
+}
+
+// ---------------------------------------------------------------------------
+// Validation
+// ---------------------------------------------------------------------------
+
+const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export interface RegisterInput {
+  username: string;
+  email: string;
+  password: string;
+  displayName?: string;
+}
+
+export type AuthResult =
+  | { ok: true; user: User; token: string }
+  | { ok: false; error: string };
+
+export function registerUser(input: RegisterInput): AuthResult {
+  const username = input.username.trim();
+  const email = input.email.trim().toLowerCase();
+  const password = input.password;
+
+  if (!USERNAME_RE.test(username)) {
+    return {
+      ok: false,
+      error: "Username must be 3–20 letters, numbers or underscores.",
+    };
+  }
+  if (!EMAIL_RE.test(email)) {
+    return { ok: false, error: "Please enter a valid email address." };
+  }
+  if (password.length < 8) {
+    return { ok: false, error: "Password must be at least 8 characters." };
+  }
+  if (userExists(username, email)) {
+    return { ok: false, error: "That username or email is already taken." };
+  }
+
+  const user = createUser({
+    username,
+    email,
+    displayName: (input.displayName || username).trim().slice(0, 40),
+    passwordHash: hashPassword(password),
+  });
+  const token = createSession(user.id, SESSION_TTL_MS);
+  return { ok: true, user, token };
+}
+
+export function loginUser(login: string, password: string): AuthResult {
+  const record = getUserAuthByLogin(login.trim());
+  if (!record || !verifyPassword(password, record.passwordHash)) {
+    return { ok: false, error: "Incorrect email/username or password." };
+  }
+  const token = createSession(record.user.id, SESSION_TTL_MS);
+  return { ok: true, user: record.user, token };
+}
+
+// ---------------------------------------------------------------------------
+// Cookie helpers
+// ---------------------------------------------------------------------------
+
+export async function setSessionCookie(token: string) {
+  const store = await cookies();
+  store.set(SESSION_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: SESSION_TTL_MS / 1000,
+    path: "/",
+  });
+}
+
+export async function clearSessionCookie() {
+  const store = await cookies();
+  const token = store.get(SESSION_COOKIE)?.value;
+  if (token) deleteSession(token);
+  store.delete(SESSION_COOKIE);
+}
+
+/** Returns the authenticated user for the current request, or null. */
+export async function getCurrentUser(): Promise<User | null> {
+  const store = await cookies();
+  const token = store.get(SESSION_COOKIE)?.value;
+  if (!token) return null;
+  return getSessionUser(token);
+}

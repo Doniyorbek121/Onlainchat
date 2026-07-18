@@ -1,6 +1,10 @@
 import Link from "next/link";
+import { getCurrentUser } from "@/lib/auth";
+import UserMenu from "./UserMenu";
 
-export default function TopBar() {
+export default async function TopBar() {
+  const user = await getCurrentUser();
+
   return (
     <header className="sticky top-0 z-30 border-b border-line/70 bg-bg/80 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-4 sm:px-6">
@@ -17,13 +21,25 @@ export default function TopBar() {
           <Link href="/" className="btn-ghost hidden sm:inline-flex">
             Discover
           </Link>
-          <Link href="/library" className="btn-ghost hidden sm:inline-flex">
-            My chats
-          </Link>
-          <Link href="/create" className="btn-primary">
-            <span className="text-base leading-none">＋</span>
-            <span className="hidden sm:inline">Create</span>
-          </Link>
+
+          {user ? (
+            <>
+              <Link href="/create" className="btn-primary">
+                <span className="text-base leading-none">＋</span>
+                <span className="hidden sm:inline">Create</span>
+              </Link>
+              <UserMenu user={user} />
+            </>
+          ) : (
+            <>
+              <Link href="/login" className="btn-ghost">
+                Sign in
+              </Link>
+              <Link href="/register" className="btn-primary">
+                Sign up
+              </Link>
+            </>
+          )}
         </nav>
       </div>
     </header>
