@@ -20,6 +20,9 @@ export default async function CharacterDetailPage({
   const user = await getCurrentUser();
   const isOwner = user?.id === character.creatorId;
 
+  // P0: private characters are visible only to their creator.
+  if (character.visibility === "private" && !isOwner) notFound();
+
   return (
     <div className="min-h-screen">
       <TopBar />

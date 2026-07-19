@@ -4,13 +4,13 @@ import {
   getCharacter,
   getConversation,
   createConversation,
-  findConversation,
   addMessage,
   listMessages,
   touchConversation,
   incrementInteractions,
 } from "@/lib/db";
 import { streamCharacterReply } from "@/lib/anthropic";
+import { rateLimit, clientKey } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,6 +24,15 @@ function sse(event: string, data: unknown): Uint8Array {
 export async function POST(req: NextRequest) {
   const userId = await getUserId();
 
+  // Rate limit: 30 messages / minute per client.
+  const rl = rateLimit(clientKey(req, "chat"), 30, 60_000);
+  if (!rl.ok) {
+    return new Response("Too many messages. Please slow down.", {
+      status: 429,
+      headers: { "Retry-After": String(rl.retryAfter) },
+    });
+  }
+
   let body: { characterId?: string; conversationId?: string; message?: string };
   try {
     body = await req.json();
@@ -35,23 +44,33 @@ export async function POST(req: NextRequest) {
   if (!body.characterId || !message) {
     return new Response("characterId and message are required", { status: 400 });
   }
+  if (message.length > 4000) {
+    return new Response("Message is too long.", { status: 400 });
+  }
 
   const character = getCharacter(body.characterId);
   if (!character) {
     return new Response("Character not found", { status: 404 });
   }
 
-  // Resolve conversation (owned by this user).
+  // P0: private characters can only be chatted with by their creator.
+  if (character.visibility === "private" && character.creatorId !== userId) {
+    return new Response("Character not found", { status: 404 });
+  }
+
+  // Use the given conversation when it belongs to this user + character,
+  // otherwise start a fresh one (this is what enables multiple chats and
+  // the "New chat" action).
   let conversation = body.conversationId
     ? getConversation(body.conversationId)
-    : findConversation(character.id, userId);
+    : null;
 
-  if (!conversation || conversation.userId !== userId) {
-    conversation = createConversation(
-      character.id,
-      userId,
-      message.slice(0, 60)
-    );
+  if (
+    !conversation ||
+    conversation.userId !== userId ||
+    conversation.characterId !== character.id
+  ) {
+    conversation = createConversation(character.id, userId, message.slice(0, 60));
   }
   const conversationId = conversation.id;
 

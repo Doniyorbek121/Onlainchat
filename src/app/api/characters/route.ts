@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { createCharacter, listCharacters } from "@/lib/db";
 import { CATEGORIES, AVATAR_COLORS, AVATAR_EMOJIS } from "@/lib/types";
+import { rateLimit, clientKey } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,6 +21,14 @@ function str(v: unknown, max: number): string {
 }
 
 export async function POST(req: NextRequest) {
+  const rl = rateLimit(clientKey(req, "char-create"), 20, 60_000);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "You're creating characters too quickly. Please wait a moment." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } }
+    );
+  }
+
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json(

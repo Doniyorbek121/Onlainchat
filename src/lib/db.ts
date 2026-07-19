@@ -229,7 +229,16 @@ export function createSession(userId: string, ttlMs: number): string {
   db.prepare(
     `INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)`
   ).run(token, userId, now, now + ttlMs);
+  // Opportunistically prune expired sessions (login/register is low frequency).
+  deleteExpiredSessions();
   return token;
+}
+
+export function deleteExpiredSessions(): number {
+  const res = db
+    .prepare(`DELETE FROM sessions WHERE expires_at < ?`)
+    .run(Date.now());
+  return res.changes;
 }
 
 export function getSessionUser(token: string): User | null {

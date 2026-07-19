@@ -19,6 +19,13 @@ export async function GET(
   if (!character) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+  // P0: don't leak private characters to non-owners.
+  if (character.visibility === "private") {
+    const user = await getCurrentUser();
+    if (character.creatorId !== user?.id) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+  }
   return NextResponse.json({ character });
 }
 

@@ -3,11 +3,20 @@ import { cookies } from "next/headers";
 import { loginUser, setSessionCookie } from "@/lib/auth";
 import { peekAnonId } from "@/lib/session";
 import { reassignOwnership } from "@/lib/db";
+import { rateLimit, clientKey } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const rl = rateLimit(clientKey(req, "login"), 10, 5 * 60_000);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Too many attempts. Please try again shortly." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } }
+    );
+  }
+
   let body: Record<string, unknown>;
   try {
     body = await req.json();

@@ -170,6 +170,13 @@ export default function ChatRoom({
             {character.tagline || `by ${character.creatorName}`}
           </p>
         </div>
+        <a
+          href={`/chat/${character.id}?new=1`}
+          className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-bg-hover hover:text-white"
+          title="Start a new chat"
+        >
+          ＋ New
+        </a>
         <Link
           href={`/character/${character.id}`}
           className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-bg-hover hover:text-white"

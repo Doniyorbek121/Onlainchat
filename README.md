@@ -20,7 +20,15 @@ Built as a complete, self-contained full-stack app inspired by projects like
   personality/behaviour prompt, avatar (emoji + colour), category and visibility,
   with a live preview. Owners can edit or delete their characters (deleting a
   character cascades to its chats); ownership is enforced on every write.
-- 🗂️ **My chats** — every conversation you start is saved and resumable.
+- 🔒 **Private characters** — private characters are hidden from discovery and
+  reachable only by their creator; enforced on every page and API route.
+- 🗂️ **My characters & My chats** — manage everything you created; keep multiple
+  separate conversations per character, start a fresh chat any time, and delete
+  chats you no longer want.
+- 🛡️ **Rate limiting** — login, registration, chat and character creation are
+  throttled per client to resist brute-force and spam.
+- ✅ **Tested & CI** — Vitest unit tests for the data layer and auth, plus a
+  GitHub Actions workflow that runs tests and a production build on every push.
 - 🧠 **Claude-powered** — each character becomes a role-played system prompt;
   streaming via Server-Sent Events.
 - 💾 **Zero-config persistence** — embedded SQLite via `better-sqlite3`.
@@ -70,7 +78,8 @@ src/
     chat/[characterId]/       Chat screen
     character/[id]/           Character profile (+ owner edit/delete)
     character/[id]/edit/      Edit a character (owner only)
-    library/                  My chats
+    mine/                     My characters (manage / private)
+    library/                  My chats (multiple per character, deletable)
     api/
       auth/                   Register / login / logout
       chat/                   Streaming chat (SSE)
@@ -84,9 +93,12 @@ src/
     db.ts                     SQLite data layer (users, sessions, characters…)
     auth.ts                   Password hashing + session auth
     anthropic.ts              Claude integration + streaming
+    rateLimit.ts              In-memory request throttling
     seed.ts                   Starter characters
     session.ts                Auth-aware / anonymous cookie sessions
     types.ts                  Shared types
+tests/                        Vitest suites (db + auth)
+.github/workflows/ci.yml      Test + build on every push
 ```
 
 ## How characters work
