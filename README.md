@@ -61,6 +61,9 @@ Built as a complete, self-contained full-stack app inspired by projects like
 - 🔏 **Hashed sessions** — only a SHA-256 of each session token is stored, so a
   database leak can't be replayed as a live login. Password-reset tokens are
   hashed and single-use the same way.
+- 🪖 **Security headers** — a strict **Content-Security-Policy** (tightened
+  automatically per configured integration), HSTS, `X-Frame-Options: DENY`,
+  `nosniff`, a locked-down `Permissions-Policy`, and no `X-Powered-By`.
 - 🩺 **Health probe** — `GET /api/health` checks database connectivity for load
   balancers / Kubernetes readiness & liveness, and bounded chat context (last 40
   messages sent to the model) keeps prompt cost flat as histories grow.
