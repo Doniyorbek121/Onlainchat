@@ -65,7 +65,21 @@ export interface DataStore {
   getSessionUser(token: string): Promise<User | null>;
   deleteSession(token: string): Promise<void>;
   deleteExpiredSessions(): Promise<number>;
+  deleteUserSessions(userId: string): Promise<void>;
   reassignOwnership(fromId: string, toId: string): Promise<void>;
+
+  // Password reset
+  getUserByEmail(email: string): Promise<User | null>;
+  updateUserPassword(userId: string, passwordHash: string): Promise<void>;
+  createPasswordReset(
+    userId: string,
+    tokenHash: string,
+    ttlMs: number
+  ): Promise<void>;
+  getValidPasswordReset(
+    tokenHash: string
+  ): Promise<{ userId: string } | null>;
+  deletePasswordReset(tokenHash: string): Promise<void>;
 
   // Characters
   createCharacter(input: CharacterInput): Promise<Character>;

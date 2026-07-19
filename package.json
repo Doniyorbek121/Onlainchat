@@ -16,6 +16,7 @@
     "@anthropic-ai/sdk": "^0.68.0",
     "better-sqlite3": "^11.8.1",
     "next": "15.5.20",
+    "nodemailer": "^6.10.1",
     "pg": "^8.22.0",
     "react": "19.0.0",
     "react-dom": "19.0.0"
@@ -23,6 +24,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.10.7",
+    "@types/nodemailer": "^6.4.24",
     "@types/pg": "^8.20.0",
     "@types/react": "^19.0.7",
     "@types/react-dom": "^19.0.3",

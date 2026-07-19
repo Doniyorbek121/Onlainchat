@@ -47,6 +47,28 @@ describe.skipIf(!URL)("postgres backend", () => {
     expect(await store.getSessionUser(expired)).toBeNull();
   });
 
+  it("password reset: token lifecycle + password update", async () => {
+    const u = await store.createUser({
+      username: `carol_${suffix}`,
+      email: `carol_${suffix}@ex.com`,
+      displayName: "Carol",
+      passwordHash: "old",
+    });
+    expect((await store.getUserByEmail(`CAROL_${suffix}@EX.COM`))?.id).toBe(u.id);
+
+    await store.createPasswordReset(u.id, `hash_${suffix}`, 60_000);
+    expect((await store.getValidPasswordReset(`hash_${suffix}`))?.userId).toBe(u.id);
+
+    await store.createPasswordReset(u.id, `expired_${suffix}`, -1000);
+    expect(await store.getValidPasswordReset(`expired_${suffix}`)).toBeNull();
+
+    await store.updateUserPassword(u.id, "newhash");
+    expect((await store.getUserAuthByLogin(`carol_${suffix}`))?.passwordHash).toBe("newhash");
+
+    await store.deletePasswordReset(`hash_${suffix}`);
+    expect(await store.getValidPasswordReset(`hash_${suffix}`)).toBeNull();
+  });
+
   it("characters: ownership on update/delete, private hidden, cascade", async () => {
     const owner = `owner_${suffix}`;
     const other = `other_${suffix}`;

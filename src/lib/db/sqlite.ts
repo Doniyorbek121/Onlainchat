@@ -88,6 +88,11 @@ export function createSqliteStore(): DataStore {
           created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+        CREATE TABLE IF NOT EXISTS password_resets (
+          token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_resets_user ON password_resets(user_id);
         CREATE TABLE IF NOT EXISTS characters (
           id TEXT PRIMARY KEY, name TEXT NOT NULL, tagline TEXT NOT NULL DEFAULT '',
           description TEXT NOT NULL DEFAULT '', greeting TEXT NOT NULL DEFAULT '',
@@ -174,6 +179,45 @@ export function createSqliteStore(): DataStore {
     async deleteExpiredSessions() {
       return db.prepare(`DELETE FROM sessions WHERE expires_at < ?`).run(Date.now())
         .changes;
+    },
+    async deleteUserSessions(userId) {
+      db.prepare(`DELETE FROM sessions WHERE user_id = ?`).run(userId);
+    },
+    async getUserByEmail(email) {
+      const r = db
+        .prepare(`SELECT * FROM users WHERE lower(email) = lower(?)`)
+        .get(email);
+      return r ? mapUser(r) : null;
+    },
+    async updateUserPassword(userId, passwordHash) {
+      db.prepare(`UPDATE users SET password_hash = ? WHERE id = ?`).run(
+        passwordHash,
+        userId
+      );
+    },
+    async createPasswordReset(userId, tokenHash, ttlMs) {
+      db.prepare(`DELETE FROM password_resets WHERE expires_at < ?`).run(Date.now());
+      const now = Date.now();
+      db.prepare(
+        `INSERT INTO password_resets (token_hash, user_id, created_at, expires_at)
+         VALUES (?, ?, ?, ?)`
+      ).run(tokenHash, userId, now, now + ttlMs);
+    },
+    async getValidPasswordReset(tokenHash) {
+      const r = db
+        .prepare(
+          `SELECT user_id, expires_at FROM password_resets WHERE token_hash = ?`
+        )
+        .get(tokenHash) as any;
+      if (!r) return null;
+      if (r.expires_at < Date.now()) {
+        await this.deletePasswordReset(tokenHash);
+        return null;
+      }
+      return { userId: r.user_id };
+    },
+    async deletePasswordReset(tokenHash) {
+      db.prepare(`DELETE FROM password_resets WHERE token_hash = ?`).run(tokenHash);
     },
     async reassignOwnership(fromId, toId) {
       if (fromId === toId) return;

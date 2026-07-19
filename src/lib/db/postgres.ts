@@ -93,6 +93,11 @@ export function createPostgresStore(connectionString: string): DataStore {
           created_at BIGINT NOT NULL, expires_at BIGINT NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+        CREATE TABLE IF NOT EXISTS password_resets (
+          token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          created_at BIGINT NOT NULL, expires_at BIGINT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_resets_user ON password_resets(user_id);
         CREATE TABLE IF NOT EXISTS characters (
           id TEXT PRIMARY KEY, name TEXT NOT NULL, tagline TEXT NOT NULL DEFAULT '',
           description TEXT NOT NULL DEFAULT '', greeting TEXT NOT NULL DEFAULT '',
@@ -181,6 +186,46 @@ export function createPostgresStore(connectionString: string): DataStore {
     async deleteExpiredSessions() {
       const r = await q(`DELETE FROM sessions WHERE expires_at < $1`, [Date.now()]);
       return r.rowCount ?? 0;
+    },
+    async deleteUserSessions(userId) {
+      await q(`DELETE FROM sessions WHERE user_id = $1`, [userId]);
+    },
+    async getUserByEmail(email) {
+      const r = await q(`SELECT * FROM users WHERE lower(email) = lower($1)`, [
+        email,
+      ]);
+      return r.rows[0] ? mapUser(r.rows[0]) : null;
+    },
+    async updateUserPassword(userId, passwordHash) {
+      await q(`UPDATE users SET password_hash = $1 WHERE id = $2`, [
+        passwordHash,
+        userId,
+      ]);
+    },
+    async createPasswordReset(userId, tokenHash, ttlMs) {
+      await q(`DELETE FROM password_resets WHERE expires_at < $1`, [Date.now()]);
+      const now = Date.now();
+      await q(
+        `INSERT INTO password_resets (token_hash, user_id, created_at, expires_at)
+         VALUES ($1,$2,$3,$4)`,
+        [tokenHash, userId, now, now + ttlMs]
+      );
+    },
+    async getValidPasswordReset(tokenHash) {
+      const r = await q(
+        `SELECT user_id, expires_at FROM password_resets WHERE token_hash = $1`,
+        [tokenHash]
+      );
+      const row = r.rows[0];
+      if (!row) return null;
+      if (Number(row.expires_at) < Date.now()) {
+        await this.deletePasswordReset(tokenHash);
+        return null;
+      }
+      return { userId: row.user_id };
+    },
+    async deletePasswordReset(tokenHash) {
+      await q(`DELETE FROM password_resets WHERE token_hash = $1`, [tokenHash]);
     },
     async reassignOwnership(fromId, toId) {
       if (fromId === toId) return;

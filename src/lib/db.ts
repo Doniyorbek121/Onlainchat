@@ -58,8 +58,25 @@ export const deleteSession = async (token: string) =>
   (await store()).deleteSession(token);
 export const deleteExpiredSessions = async () =>
   (await store()).deleteExpiredSessions();
+export const deleteUserSessions = async (userId: string) =>
+  (await store()).deleteUserSessions(userId);
 export const reassignOwnership = async (from: string, to: string) =>
   (await store()).reassignOwnership(from, to);
+
+// Password reset
+export const getUserByEmail = async (email: string) =>
+  (await store()).getUserByEmail(email);
+export const updateUserPassword = async (userId: string, passwordHash: string) =>
+  (await store()).updateUserPassword(userId, passwordHash);
+export const createPasswordReset = async (
+  userId: string,
+  tokenHash: string,
+  ttlMs: number
+) => (await store()).createPasswordReset(userId, tokenHash, ttlMs);
+export const getValidPasswordReset = async (tokenHash: string) =>
+  (await store()).getValidPasswordReset(tokenHash);
+export const deletePasswordReset = async (tokenHash: string) =>
+  (await store()).deletePasswordReset(tokenHash);
 
 // Characters
 export const createCharacter = async (i: CharacterInput) =>

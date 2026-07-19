@@ -13,6 +13,10 @@ Built as a complete, self-contained full-stack app inspired by projects like
 - 🔐 **Real accounts** — email/username registration & login, secure `scrypt`
   password hashing, server-side sessions (30-day cookie), and one-click logout.
   Chats you start while signed out are migrated into your account on sign-up.
+- 🔑 **Password reset** — request a link by email; single-use, SHA-256-hashed,
+  1-hour tokens; changing the password invalidates all existing sessions.
+  Links are emailed via SMTP when configured, otherwise logged (and returned in
+  dev) so self-hosters can use the flow with zero setup.
 - 🧭 **Discovery** — browse trending characters, filter by category, and search.
 - 💬 **Real-time chat** — token-by-token streaming replies, persisted history,
   auto-resume of past conversations.
@@ -114,7 +118,8 @@ if your provider enforces TLS.
 src/
   app/
     page.tsx                  Discovery / home
-    login/  register/         Auth screens
+    login/ register/          Auth screens
+    forgot/ reset/            Password reset screens
     create/                   Character creator (requires sign-in)
     chat/[characterId]/       Chat screen
     character/[id]/           Character profile (+ owner edit/delete)
@@ -122,7 +127,7 @@ src/
     mine/                     My characters (manage / private)
     library/                  My chats (multiple per character, deletable)
     api/
-      auth/                   Register / login / logout
+      auth/                   Register / login / logout / forgot / reset
       chat/                   Streaming chat (SSE)
       characters/             Create / list characters
       characters/[id]/        Get / update (PATCH) / delete a character
@@ -135,7 +140,8 @@ src/
     db/store.ts               Shared async DataStore interface
     db/sqlite.ts              SQLite backend (better-sqlite3)
     db/postgres.ts            Postgres backend (pg)
-    auth.ts                   Password hashing + session auth
+    auth.ts                   Password hashing, sessions, password reset
+    email.ts                  Password-reset delivery (SMTP / console)
     anthropic.ts              Claude integration + streaming
     rateLimit.ts              In-memory request throttling
     seed.ts                   Starter characters

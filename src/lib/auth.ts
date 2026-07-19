@@ -1,4 +1,9 @@
-import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import {
+  createHash,
+  randomBytes,
+  scryptSync,
+  timingSafeEqual,
+} from "node:crypto";
 import { cookies } from "next/headers";
 import {
   createUser,
@@ -7,11 +12,20 @@ import {
   deleteSession,
   getUserAuthByLogin,
   userExists,
+  getUserByEmail,
+  updateUserPassword,
+  createPasswordReset,
+  getValidPasswordReset,
+  deletePasswordReset,
+  deleteUserSessions,
 } from "./db";
 import type { User } from "./types";
 
 const SESSION_COOKIE = "oc_session";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30; // 30 days
+const RESET_TTL_MS = 1000 * 60 * 60; // 1 hour
+
+const sha256 = (v: string) => createHash("sha256").update(v).digest("hex");
 
 // ---------------------------------------------------------------------------
 // Password hashing (scrypt — no native deps)
@@ -90,6 +104,49 @@ export async function loginUser(
   }
   const token = await createSession(record.user.id, SESSION_TTL_MS);
   return { ok: true, user: record.user, token };
+}
+
+// ---------------------------------------------------------------------------
+// Password reset
+// ---------------------------------------------------------------------------
+
+/**
+ * Creates a single-use password reset token for the given email, if a matching
+ * account exists. Returns the raw token (to embed in a link) and the user, or
+ * null when no account matches. Callers must not reveal which case occurred.
+ */
+export async function requestPasswordReset(
+  email: string
+): Promise<{ token: string; user: User } | null> {
+  const user = await getUserByEmail(email.trim().toLowerCase());
+  if (!user) return null;
+  const token = randomBytes(32).toString("hex");
+  await createPasswordReset(user.id, sha256(token), RESET_TTL_MS);
+  return { token, user };
+}
+
+export type ResetResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Consumes a reset token and sets a new password. On success the token is
+ * deleted and every existing session for the user is invalidated.
+ */
+export async function resetPassword(
+  token: string,
+  newPassword: string
+): Promise<ResetResult> {
+  if (!token || newPassword.length < 8) {
+    return { ok: false, error: "Password must be at least 8 characters." };
+  }
+  const hash = sha256(token.trim());
+  const record = await getValidPasswordReset(hash);
+  if (!record) {
+    return { ok: false, error: "This reset link is invalid or has expired." };
+  }
+  await updateUserPassword(record.userId, hashPassword(newPassword));
+  await deletePasswordReset(hash);
+  await deleteUserSessions(record.userId); // force re-login everywhere
+  return { ok: true };
 }
 
 // ---------------------------------------------------------------------------
