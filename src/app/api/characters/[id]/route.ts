@@ -96,6 +96,22 @@ export async function PATCH(
     return NextResponse.json({ error: MODERATION_MESSAGE }, { status: 422 });
   }
 
+  // Avatar handling on edit:
+  //  - a new data: URL → validate + (optionally) upload to object storage
+  //  - empty string    → the user removed the photo
+  //  - anything else    → keep the stored value (e.g. an existing S3/CDN URL),
+  //    so editing other fields never wipes the avatar or re-uploads it.
+  const incomingAvatar =
+    typeof body.avatarImage === "string" ? body.avatarImage : "";
+  let avatarImage: string;
+  if (incomingAvatar === "") {
+    avatarImage = "";
+  } else if (incomingAvatar.startsWith("data:")) {
+    avatarImage = await persistAvatar(validAvatarImage(incomingAvatar));
+  } else {
+    avatarImage = existing.avatarImage;
+  }
+
   const character = await updateCharacter(id, user.id, {
     name,
     tagline,
@@ -106,7 +122,7 @@ export async function PATCH(
     avatarColor: AVATAR_COLORS.includes(str(body.avatarColor, 9))
       ? str(body.avatarColor, 9)
       : existing.avatarColor,
-    avatarImage: await persistAvatar(validAvatarImage(body.avatarImage)),
+    avatarImage,
     category,
     visibility: body.visibility === "private" ? "private" : "public",
   });

@@ -6,7 +6,11 @@ import ConsentGate from "@/components/ConsentGate";
 import Analytics from "@/components/Analytics";
 
 export const metadata: Metadata = {
-  title: "Character AI — Chat with AI characters",
+  metadataBase: new URL(process.env.APP_URL || "http://localhost:3000"),
+  title: {
+    default: "Character AI — Chat with AI characters",
+    template: "%s",
+  },
   description:
     "Create and chat with lifelike AI characters. A professional open-source Character.AI-style platform powered by Claude.",
 };

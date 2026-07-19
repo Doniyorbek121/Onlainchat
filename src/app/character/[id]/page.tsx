@@ -9,8 +9,36 @@ import ReportButton from "@/components/ReportButton";
 import { getCharacter, isFavorited, getUserById } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { getServerI18n } from "@/lib/i18n/server";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const character = await getCharacter(id);
+  // Don't expose private characters (or missing ones) in link previews.
+  if (!character || character.visibility === "private") {
+    return { title: "Character AI" };
+  }
+  const title = `${character.name} — Character AI`;
+  const description =
+    character.tagline || character.description || `Chat with ${character.name}.`;
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: "profile",
+      url: `/character/${character.id}`,
+    },
+    twitter: { card: "summary", title, description },
+  };
+}
 
 export default async function CharacterDetailPage({
   params,

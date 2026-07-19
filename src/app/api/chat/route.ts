@@ -12,6 +12,8 @@ import {
 } from "@/lib/db";
 import { streamCharacterReply } from "@/lib/anthropic";
 import { rateLimit, clientKey } from "@/lib/rateLimit";
+import { screenText } from "@/lib/moderation";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,6 +58,22 @@ export async function POST(req: NextRequest) {
   }
   if (message.length > 4000) {
     return new Response("Message is too long.", { status: 400 });
+  }
+  // Screen inbound messages for the hardest-line category (sexualisation of
+  // minors). General adult content is left to the model provider's guardrails
+  // so ordinary roleplay isn't blocked.
+  if (!regenerate) {
+    const screen = screenText(message);
+    if (!screen.ok && screen.category === "csae") {
+      logger.warn("moderation.blocked", {
+        surface: "chat.message",
+        userId,
+        category: screen.category,
+      });
+      return new Response("This message violates our content policy.", {
+        status: 422,
+      });
+    }
   }
 
   const character = await getCharacter(body.characterId);

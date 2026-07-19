@@ -2,9 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useT } from "./I18nProvider";
 
 const CONSENT_COOKIE = "oc_consent";
+
+// Pages a visitor must be able to read before consenting.
+const EXEMPT = ["/terms", "/privacy"];
 
 function hasConsent(): boolean {
   if (typeof document === "undefined") return true;
@@ -19,19 +23,21 @@ function hasConsent(): boolean {
  */
 export default function ConsentGate() {
   const t = useT();
+  const pathname = usePathname();
   const [show, setShow] = useState(false);
   const [declined, setDeclined] = useState(false);
+  const exempt = EXEMPT.some((p) => pathname?.startsWith(p));
 
   useEffect(() => {
-    if (!hasConsent()) setShow(true);
-  }, []);
+    if (!exempt && !hasConsent()) setShow(true);
+  }, [exempt]);
 
   function accept() {
     document.cookie = `${CONSENT_COOKIE}=1; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
     setShow(false);
   }
 
-  if (!show) return null;
+  if (exempt || !show) return null;
 
   return (
     <div

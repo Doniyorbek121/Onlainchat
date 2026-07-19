@@ -32,34 +32,37 @@ export interface RateLimitResult {
 // Optional Redis backend (shared across instances)
 // ---------------------------------------------------------------------------
 
-let redis: Redis | null = null;
-let redisTried = false;
+let redisPromise: Promise<Redis | null> | null = null;
 
-function getRedis(): Redis | null {
-  if (redisTried) return redis;
-  redisTried = true;
+function getRedis(): Promise<Redis | null> {
+  if (redisPromise) return redisPromise;
   const url = process.env.REDIS_URL;
-  if (!url) return null;
-  try {
-    // Lazy require so ioredis is only loaded when actually configured.
-
-    const IORedis = require("ioredis") as typeof import("ioredis").default;
-    redis = new IORedis(url, {
-      maxRetriesPerRequest: 1,
-      enableOfflineQueue: false,
-      lazyConnect: false,
-    });
-    redis.on("error", (err: Error) => {
-      logger.warn("redis.error", { message: err.message });
-    });
-    logger.info("ratelimit.redis.enabled", {});
-  } catch (err) {
-    logger.error("ratelimit.redis.init_failed", {
-      message: (err as Error)?.message,
-    });
-    redis = null;
+  if (!url) {
+    redisPromise = Promise.resolve(null);
+    return redisPromise;
   }
-  return redis;
+  // Lazy dynamic import so ioredis is only loaded when actually configured,
+  // and so this works under Next's ESM server runtime (no bare `require`).
+  redisPromise = import("ioredis")
+    .then(({ default: IORedis }) => {
+      const client = new IORedis(url, {
+        maxRetriesPerRequest: 1,
+        enableOfflineQueue: false,
+        lazyConnect: false,
+      });
+      client.on("error", (err: Error) => {
+        logger.warn("redis.error", { message: err.message });
+      });
+      logger.info("ratelimit.redis.enabled", {});
+      return client;
+    })
+    .catch((err: unknown) => {
+      logger.error("ratelimit.redis.init_failed", {
+        message: (err as Error)?.message,
+      });
+      return null;
+    });
+  return redisPromise;
 }
 
 function inMemory(key: string, limit: number, windowMs: number): RateLimitResult {
@@ -94,7 +97,7 @@ export async function rateLimit(
   limit: number,
   windowMs: number
 ): Promise<RateLimitResult> {
-  const client = getRedis();
+  const client = await getRedis();
   if (!client) return inMemory(key, limit, windowMs);
 
   const redisKey = `rl:${key}`;
