@@ -8,24 +8,38 @@ import {
   CATEGORIES,
   AVATAR_COLORS,
   AVATAR_EMOJIS,
+  type Character,
 } from "@/lib/types";
 
-export default function CreateCharacterForm({
+export default function CharacterForm({
   creatorName,
+  mode = "create",
+  character,
 }: {
   creatorName: string;
+  mode?: "create" | "edit";
+  character?: Character;
 }) {
   const router = useRouter();
+  const isEdit = mode === "edit";
 
-  const [name, setName] = useState("");
-  const [tagline, setTagline] = useState("");
-  const [description, setDescription] = useState("");
-  const [greeting, setGreeting] = useState("");
-  const [persona, setPersona] = useState("");
-  const [category, setCategory] = useState<string>("Assistant");
-  const [avatarEmoji, setAvatarEmoji] = useState(AVATAR_EMOJIS[0]);
-  const [avatarColor, setAvatarColor] = useState(AVATAR_COLORS[0]);
-  const [visibility, setVisibility] = useState<"public" | "private">("public");
+  const [name, setName] = useState(character?.name ?? "");
+  const [tagline, setTagline] = useState(character?.tagline ?? "");
+  const [description, setDescription] = useState(character?.description ?? "");
+  const [greeting, setGreeting] = useState(character?.greeting ?? "");
+  const [persona, setPersona] = useState(character?.persona ?? "");
+  const [category, setCategory] = useState<string>(
+    character?.category ?? "Assistant"
+  );
+  const [avatarEmoji, setAvatarEmoji] = useState(
+    character?.avatarEmoji ?? AVATAR_EMOJIS[0]
+  );
+  const [avatarColor, setAvatarColor] = useState(
+    character?.avatarColor ?? AVATAR_COLORS[0]
+  );
+  const [visibility, setVisibility] = useState<"public" | "private">(
+    character?.visibility ?? "public"
+  );
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,25 +53,32 @@ export default function CreateCharacterForm({
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch("/api/characters", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          tagline,
-          description,
-          greeting,
-          persona,
-          category,
-          avatarEmoji,
-          avatarColor,
-          visibility,
-          creatorName,
-        }),
-      });
+      const res = await fetch(
+        isEdit ? `/api/characters/${character!.id}` : "/api/characters",
+        {
+          method: isEdit ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name,
+            tagline,
+            description,
+            greeting,
+            persona,
+            category,
+            avatarEmoji,
+            avatarColor,
+            visibility,
+            creatorName,
+          }),
+        }
+      );
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Could not create character");
-      router.push(`/chat/${data.character.id}`);
+      if (!res.ok)
+        throw new Error(
+          data.error || `Could not ${isEdit ? "save" : "create"} character`
+        );
+      router.push(isEdit ? `/character/${data.character.id}` : `/chat/${data.character.id}`);
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
       setSaving(false);
@@ -74,7 +95,9 @@ export default function CreateCharacterForm({
           >
             ←
           </Link>
-          <h1 className="text-lg font-bold">Create a character</h1>
+          <h1 className="text-lg font-bold">
+            {isEdit ? "Edit character" : "Create a character"}
+          </h1>
         </div>
       </header>
 
@@ -246,7 +269,11 @@ export default function CreateCharacterForm({
                 disabled={saving}
                 className="btn-primary w-full"
               >
-                {saving ? "Creating…" : "✦ Create & chat"}
+                {saving
+                  ? "Saving…"
+                  : isEdit
+                  ? "✓ Save changes"
+                  : "✦ Create & chat"}
               </button>
             </div>
           </aside>

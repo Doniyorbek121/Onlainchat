@@ -16,9 +16,10 @@ Built as a complete, self-contained full-stack app inspired by projects like
 - 🧭 **Discovery** — browse trending characters, filter by category, and search.
 - 💬 **Real-time chat** — token-by-token streaming replies, persisted history,
   auto-resume of past conversations.
-- 🎨 **Character creator** — name, tagline, description, greeting, full
+- 🎨 **Character creator & editor** — name, tagline, description, greeting, full
   personality/behaviour prompt, avatar (emoji + colour), category and visibility,
-  with a live preview.
+  with a live preview. Owners can edit or delete their characters (deleting a
+  character cascades to its chats); ownership is enforced on every write.
 - 🗂️ **My chats** — every conversation you start is saved and resumable.
 - 🧠 **Claude-powered** — each character becomes a role-played system prompt;
   streaming via Server-Sent Events.
@@ -67,16 +68,18 @@ src/
     login/  register/         Auth screens
     create/                   Character creator (requires sign-in)
     chat/[characterId]/       Chat screen
-    character/[id]/           Character profile
+    character/[id]/           Character profile (+ owner edit/delete)
+    character/[id]/edit/      Edit a character (owner only)
     library/                  My chats
     api/
       auth/                   Register / login / logout
       chat/                   Streaming chat (SSE)
-      characters/             Create / list / delete characters
+      characters/             Create / list characters
+      characters/[id]/        Get / update (PATCH) / delete a character
       conversations/[id]/     Delete a conversation
   components/                 Avatar, TopBar, UserMenu, AuthForm,
                               CharacterCard, Discovery, ChatRoom,
-                              CreateCharacterForm
+                              CharacterForm, CharacterOwnerActions
   lib/
     db.ts                     SQLite data layer (users, sessions, characters…)
     auth.ts                   Password hashing + session auth

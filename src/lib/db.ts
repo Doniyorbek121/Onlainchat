@@ -345,6 +345,38 @@ export function listCharacters(opts: {
   return rows.map(mapCharacter);
 }
 
+export type CharacterUpdate = Pick<
+  CharacterInput,
+  | "name"
+  | "tagline"
+  | "description"
+  | "greeting"
+  | "persona"
+  | "avatarEmoji"
+  | "avatarColor"
+  | "category"
+  | "visibility"
+>;
+
+/** Updates a character only when owned by `creatorId`. Returns null otherwise. */
+export function updateCharacter(
+  characterId: string,
+  creatorId: string,
+  update: CharacterUpdate
+): Character | null {
+  const res = db
+    .prepare(
+      `UPDATE characters SET
+         name = @name, tagline = @tagline, description = @description,
+         greeting = @greeting, persona = @persona, avatar_emoji = @avatarEmoji,
+         avatar_color = @avatarColor, category = @category, visibility = @visibility
+       WHERE id = @characterId AND creator_id = @creatorId`
+    )
+    .run({ ...update, characterId, creatorId });
+  if (res.changes === 0) return null;
+  return getCharacter(characterId);
+}
+
 export function incrementInteractions(characterId: string) {
   db.prepare(
     `UPDATE characters SET interactions = interactions + 1 WHERE id = ?`

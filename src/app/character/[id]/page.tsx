@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import TopBar from "@/components/TopBar";
+import CharacterOwnerActions from "@/components/CharacterOwnerActions";
 import { getCharacter } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +16,9 @@ export default async function CharacterDetailPage({
   const { id } = await params;
   const character = getCharacter(id);
   if (!character) notFound();
+
+  const user = await getCurrentUser();
+  const isOwner = user?.id === character.creatorId;
 
   return (
     <div className="min-h-screen">
@@ -58,6 +63,13 @@ export default async function CharacterDetailPage({
             >
               💬 Start chatting
             </Link>
+
+            {isOwner && (
+              <CharacterOwnerActions
+                characterId={character.id}
+                characterName={character.name}
+              />
+            )}
           </div>
         </div>
 
