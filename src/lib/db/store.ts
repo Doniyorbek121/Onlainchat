@@ -55,6 +55,7 @@ export interface UserInput {
  */
 export interface DataStore {
   init(): Promise<void>;
+  ping(): Promise<boolean>;
 
   // Users & sessions
   createUser(input: UserInput): Promise<User>;
@@ -64,12 +65,23 @@ export interface DataStore {
     login: string
   ): Promise<{ user: User; passwordHash: string } | null>;
   userExists(username: string, email: string): Promise<boolean>;
-  createSession(userId: string, ttlMs: number): Promise<string>;
-  getSessionUser(token: string): Promise<User | null>;
-  deleteSession(token: string): Promise<void>;
+  // Sessions are stored by a SHA-256 hash of the opaque token (never the raw
+  // value), so a database leak does not expose usable session tokens.
+  createSession(userId: string, tokenHash: string, ttlMs: number): Promise<void>;
+  getSessionUser(tokenHash: string): Promise<User | null>;
+  deleteSession(tokenHash: string): Promise<void>;
   deleteExpiredSessions(): Promise<number>;
   deleteUserSessions(userId: string): Promise<void>;
   reassignOwnership(fromId: string, toId: string): Promise<void>;
+
+  // Admin
+  countUsers(): Promise<number>;
+  countConversations(): Promise<number>;
+  countMessages(): Promise<number>;
+  listRecentUsers(limit: number): Promise<User[]>;
+  listRecentCharacters(limit: number): Promise<Character[]>;
+  deleteUserCascade(userId: string): Promise<boolean>;
+  adminDeleteCharacter(id: string): Promise<boolean>;
 
   // Password reset
   getUserByEmail(email: string): Promise<User | null>;

@@ -52,12 +52,16 @@ export const getUserAuthByLogin = async (login: string) =>
   (await store()).getUserAuthByLogin(login);
 export const userExists = async (u: string, e: string) =>
   (await store()).userExists(u, e);
-export const createSession = async (userId: string, ttlMs: number) =>
-  (await store()).createSession(userId, ttlMs);
-export const getSessionUser = async (token: string) =>
-  (await store()).getSessionUser(token);
-export const deleteSession = async (token: string) =>
-  (await store()).deleteSession(token);
+export const ping = async () => (await store()).ping();
+export const createSession = async (
+  userId: string,
+  tokenHash: string,
+  ttlMs: number
+) => (await store()).createSession(userId, tokenHash, ttlMs);
+export const getSessionUser = async (tokenHash: string) =>
+  (await store()).getSessionUser(tokenHash);
+export const deleteSession = async (tokenHash: string) =>
+  (await store()).deleteSession(tokenHash);
 export const deleteExpiredSessions = async () =>
   (await store()).deleteExpiredSessions();
 export const deleteUserSessions = async (userId: string) =>
@@ -134,3 +138,17 @@ export const isFavorited = async (userId: string, characterId: string) =>
   (await store()).isFavorited(userId, characterId);
 export const listFavoriteCharacters = async (userId: string) =>
   (await store()).listFavoriteCharacters(userId);
+
+// Admin
+export const countUsers = async () => (await store()).countUsers();
+export const countConversations = async () =>
+  (await store()).countConversations();
+export const countMessages = async () => (await store()).countMessages();
+export const listRecentUsers = async (limit: number) =>
+  (await store()).listRecentUsers(limit);
+export const listRecentCharacters = async (limit: number) =>
+  (await store()).listRecentCharacters(limit);
+export const deleteUserCascade = async (userId: string) =>
+  (await store()).deleteUserCascade(userId);
+export const adminDeleteCharacter = async (id: string) =>
+  (await store()).adminDeleteCharacter(id);

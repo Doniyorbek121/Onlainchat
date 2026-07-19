@@ -28,6 +28,7 @@ function mapUser(r: any): User {
     username: r.username,
     email: r.email,
     displayName: r.display_name,
+    role: r.role === "admin" ? "admin" : "user",
     createdAt: r.created_at,
   };
 }
@@ -87,8 +88,10 @@ export function createSqliteStore(): DataStore {
       db.exec(`
         CREATE TABLE IF NOT EXISTS users (
           id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE, email TEXT NOT NULL UNIQUE,
-          display_name TEXT NOT NULL DEFAULT '', password_hash TEXT NOT NULL, created_at INTEGER NOT NULL
+          display_name TEXT NOT NULL DEFAULT '', password_hash TEXT NOT NULL,
+          role TEXT NOT NULL DEFAULT 'user', created_at INTEGER NOT NULL
         );
+        -- The 'token' column stores a SHA-256 hash of the session token.
         CREATE TABLE IF NOT EXISTS sessions (
           token TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
           created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL
@@ -141,6 +144,19 @@ export function createSqliteStore(): DataStore {
           `ALTER TABLE characters ADD COLUMN avatar_image TEXT NOT NULL DEFAULT ''`
         );
       }
+      const userCols = db
+        .prepare(`PRAGMA table_info(users)`)
+        .all()
+        .map((c: any) => c.name);
+      if (!userCols.includes("role")) {
+        db.exec(
+          `ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'`
+        );
+      }
+    },
+    async ping() {
+      db.prepare(`SELECT 1`).get();
+      return true;
     },
 
     async createUser(input: UserInput) {
@@ -184,28 +200,26 @@ export function createSqliteStore(): DataStore {
         .get(username, email);
       return Boolean(r);
     },
-    async createSession(userId, ttlMs) {
-      const token = `${genId()}${genId()}`;
+    async createSession(userId, tokenHash, ttlMs) {
       const now = Date.now();
       db.prepare(
         `INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)`
-      ).run(token, userId, now, now + ttlMs);
+      ).run(tokenHash, userId, now, now + ttlMs);
       await this.deleteExpiredSessions();
-      return token;
     },
-    async getSessionUser(token) {
+    async getSessionUser(tokenHash) {
       const r = db
         .prepare(`SELECT user_id, expires_at FROM sessions WHERE token = ?`)
-        .get(token) as any;
+        .get(tokenHash) as any;
       if (!r) return null;
       if (r.expires_at < Date.now()) {
-        await this.deleteSession(token);
+        await this.deleteSession(tokenHash);
         return null;
       }
       return this.getUserById(r.user_id);
     },
-    async deleteSession(token) {
-      db.prepare(`DELETE FROM sessions WHERE token = ?`).run(token);
+    async deleteSession(tokenHash) {
+      db.prepare(`DELETE FROM sessions WHERE token = ?`).run(tokenHash);
     },
     async deleteExpiredSessions() {
       return db.prepare(`DELETE FROM sessions WHERE expires_at < ?`).run(Date.now())
@@ -461,6 +475,45 @@ export function createSqliteStore(): DataStore {
         )
         .all(userId);
       return rows.map(mapCharacter);
+    },
+
+    async countUsers() {
+      return (db.prepare(`SELECT COUNT(*) AS c FROM users`).get() as any).c;
+    },
+    async countConversations() {
+      return (db.prepare(`SELECT COUNT(*) AS c FROM conversations`).get() as any)
+        .c;
+    },
+    async countMessages() {
+      return (db.prepare(`SELECT COUNT(*) AS c FROM messages`).get() as any).c;
+    },
+    async listRecentUsers(limit) {
+      const rows = db
+        .prepare(`SELECT * FROM users ORDER BY created_at DESC LIMIT ?`)
+        .all(limit);
+      return rows.map(mapUser);
+    },
+    async listRecentCharacters(limit) {
+      const rows = db
+        .prepare(`${CHAR_SELECT} ORDER BY created_at DESC LIMIT ?`)
+        .all(limit);
+      return rows.map(mapCharacter);
+    },
+    async deleteUserCascade(userId) {
+      const exists = db
+        .prepare(`SELECT 1 FROM users WHERE id = ?`)
+        .get(userId);
+      if (!exists) return false;
+      db.transaction(() => {
+        db.prepare(`DELETE FROM characters WHERE creator_id = ?`).run(userId);
+        db.prepare(`DELETE FROM conversations WHERE user_id = ?`).run(userId);
+        db.prepare(`DELETE FROM favorites WHERE user_id = ?`).run(userId);
+        db.prepare(`DELETE FROM users WHERE id = ?`).run(userId); // cascades sessions/resets
+      })();
+      return true;
+    },
+    async adminDeleteCharacter(id) {
+      return db.prepare(`DELETE FROM characters WHERE id = ?`).run(id).changes > 0;
     },
   };
 }

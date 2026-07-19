@@ -43,6 +43,16 @@ Built as a complete, self-contained full-stack app inspired by projects like
 - 🗂️ **My characters & My chats** — manage everything you created; keep multiple
   separate conversations per character, start a fresh chat any time, and delete
   chats you no longer want.
+- 🛡️ **Admin panel** — a role-gated `/admin` dashboard (bootstrapped via
+  `ADMIN_EMAILS` or a user's `role`) with live totals (users, characters,
+  conversations, messages) and moderation: delete any character, or delete a
+  user and cascade all their data.
+- 🔏 **Hashed sessions** — only a SHA-256 of each session token is stored, so a
+  database leak can't be replayed as a live login. Password-reset tokens are
+  hashed and single-use the same way.
+- 🩺 **Health probe** — `GET /api/health` checks database connectivity for load
+  balancers / Kubernetes readiness & liveness, and bounded chat context (last 40
+  messages sent to the model) keeps prompt cost flat as histories grow.
 - 🛡️ **Rate limiting** — login, registration, chat and character creation are
   throttled per client to resist brute-force and spam.
 - 🧷 **CSRF protection** — a double-submit token (`x-csrf-token` header vs.
@@ -83,7 +93,10 @@ automatically on first run. To seed manually: `pnpm seed`.
 | ------------------- | -------- | --------------------------------------------- |
 | `ANTHROPIC_API_KEY` | For AI   | Enables live, in-character Claude responses.  |
 | `CHARACTER_AI_MODEL`| No       | Model id (default `claude-opus-4-8`).         |
+| `DATABASE_URL`      | Prod     | Postgres connection string; unset uses SQLite. |
 | `DATABASE_PATH`     | No       | SQLite file path (default `data/onlainchat.db`). |
+| `ADMIN_EMAILS`      | No       | Comma-separated emails granted `/admin` access. |
+| `SMTP_URL`          | No       | SMTP server for password-reset emails.        |
 
 Without an API key the app runs in **demo mode** — every feature works, but
 characters reply with placeholder text.
@@ -144,12 +157,15 @@ src/
     u/[username]/             Public user profile (created + saved)
     mine/                     My characters (manage / private)
     library/                  My chats (multiple per character, deletable)
+    admin/                    Admin dashboard (role-gated)
     api/
       auth/                   Register / login / logout / forgot / reset
       chat/                   Streaming chat (SSE)
       characters/             Create / list characters
       characters/[id]/        Get / update (PATCH) / delete a character
       conversations/[id]/     Delete a conversation
+      admin/                  Admin moderation (delete user / character)
+      health/                 DB health probe for load balancers
   components/                 Avatar, TopBar, UserMenu, AuthForm,
                               CharacterCard, Discovery, ChatRoom,
                               CharacterForm, CharacterOwnerActions
@@ -178,4 +194,15 @@ tests/                        Vitest suites (db + auth)
 Each character stores a **persona** (personality & instructions). At chat time
 that persona is compiled into a fenced system prompt that instructs Claude to
 role-play the character while keeping the experience safe. Conversation history
-is replayed on every turn to preserve context.
+is replayed on every turn to preserve context (bounded to the most recent turns
+so token cost stays flat).
+
+## Scaling & operations
+
+The app is **stateless** (bar the in-memory rate limiter) so it scales
+horizontally behind a load balancer. See [`SCALING.md`](./SCALING.md) for an
+honest map of what the code already does for load and safety, and the
+infrastructure to add for very large traffic (shared/Redis rate limiting,
+PgBouncer + read replicas, CDN, object storage for avatars, denormalised
+counters, background jobs & observability, and running migrations as a separate
+deploy step).

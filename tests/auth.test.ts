@@ -1,6 +1,9 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import os from "node:os";
 import path from "node:path";
+import { createHash } from "node:crypto";
+
+const sha256 = (v: string) => createHash("sha256").update(v).digest("hex");
 
 // next/headers requires a request scope; stub it so the module imports cleanly.
 vi.mock("next/headers", () => ({
@@ -110,7 +113,7 @@ describe("password reset", () => {
       password: "oldpassword1",
     });
     const oldSession = reg.token;
-    expect((await db.getSessionUser(oldSession))?.username).toBe("frank");
+    expect((await db.getSessionUser(sha256(oldSession)))?.username).toBe("frank");
 
     const { token } = await auth.requestPasswordReset("frank@example.com");
 
@@ -125,7 +128,7 @@ describe("password reset", () => {
     expect((await auth.loginUser("frank", "newpassword1")).ok).toBe(true);
 
     // Existing session invalidated
-    expect(await db.getSessionUser(oldSession)).toBeNull();
+    expect(await db.getSessionUser(sha256(oldSession))).toBeNull();
 
     // Token is single-use
     expect((await auth.resetPassword(token, "another12")).ok).toBe(false);

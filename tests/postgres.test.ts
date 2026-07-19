@@ -41,10 +41,16 @@ describe.skipIf(!URL)("postgres backend", () => {
       displayName: "Bob",
       passwordHash: "h",
     });
-    const good = await store.createSession(u.id, 60_000);
-    expect((await store.getSessionUser(good))?.id).toBe(u.id);
-    const expired = await store.createSession(u.id, -1000);
-    expect(await store.getSessionUser(expired)).toBeNull();
+    await store.createSession(u.id, `hg_${suffix}`, 60_000);
+    expect((await store.getSessionUser(`hg_${suffix}`))?.id).toBe(u.id);
+    await store.createSession(u.id, `he_${suffix}`, -1000);
+    expect(await store.getSessionUser(`he_${suffix}`)).toBeNull();
+    expect(await store.ping()).toBe(true);
+    expect(await store.countUsers()).toBeGreaterThan(0);
+
+    // cascade delete removes the user and their data
+    expect(await store.deleteUserCascade(u.id)).toBe(true);
+    expect(await store.getUserById(u.id)).toBeNull();
   });
 
   it("password reset: token lifecycle + password update", async () => {

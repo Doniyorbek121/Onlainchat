@@ -60,14 +60,14 @@ describe("sessions", () => {
       displayName: "Bob",
       passwordHash: "h",
     });
-    const good = await db.createSession(u.id, 60_000);
-    expect((await db.getSessionUser(good))?.id).toBe(u.id);
+    await db.createSession(u.id, "hash_good", 60_000);
+    expect((await db.getSessionUser("hash_good"))?.id).toBe(u.id);
 
-    const expired = await db.createSession(u.id, -1000);
-    expect(await db.getSessionUser(expired)).toBeNull();
+    await db.createSession(u.id, "hash_expired", -1000);
+    expect(await db.getSessionUser("hash_expired")).toBeNull();
 
-    await db.deleteSession(good);
-    expect(await db.getSessionUser(good)).toBeNull();
+    await db.deleteSession("hash_good");
+    expect(await db.getSessionUser("hash_good")).toBeNull();
   });
 });
 
@@ -175,7 +175,63 @@ describe("getUserByUsername", () => {
       displayName: "Prof",
       passwordHash: "h",
     });
+    expect(u.role).toBe("user");
     expect((await db.getUserByUsername("profileuser"))?.id).toBe(u.id);
     expect(await db.getUserByUsername("nobody")).toBeNull();
+  });
+});
+
+describe("admin", () => {
+  it("counts, lists, deletes characters and cascades a user", async () => {
+    const u = await db.createUser({
+      username: "adminvictim",
+      email: "av@example.com",
+      displayName: "AV",
+      passwordHash: "h",
+    });
+    const c = await db.createCharacter({
+      name: "Orphan",
+      tagline: "t",
+      description: "d",
+      greeting: "hi",
+      persona: "p",
+      avatarEmoji: "🤖",
+      avatarColor: "#7c5cff",
+      category: "Games",
+      visibility: "public",
+      creatorId: u.id,
+      creatorName: "AV",
+    });
+    const conv = await db.createConversation(c.id, u.id, "chat");
+    await db.addMessage(conv.id, "user", "hi");
+
+    expect(await db.countUsers()).toBeGreaterThan(0);
+    expect((await db.listRecentUsers(50)).some((x: any) => x.id === u.id)).toBe(
+      true
+    );
+
+    // admin can delete any character regardless of owner
+    const c2 = await db.createCharacter({
+      name: "AnyDelete",
+      tagline: "",
+      description: "",
+      greeting: "",
+      persona: "p",
+      avatarEmoji: "🤖",
+      avatarColor: "#7c5cff",
+      category: "Games",
+      visibility: "public",
+      creatorId: "someone_else",
+      creatorName: "X",
+    });
+    expect(await db.adminDeleteCharacter(c2.id)).toBe(true);
+    expect(await db.getCharacter(c2.id)).toBeNull();
+
+    // deleting the user cascades their characters/conversations/messages
+    expect(await db.deleteUserCascade(u.id)).toBe(true);
+    expect(await db.getUserById(u.id)).toBeNull();
+    expect(await db.getCharacter(c.id)).toBeNull();
+    expect(await db.getConversation(conv.id)).toBeNull();
+    expect(await db.deleteUserCascade(u.id)).toBe(false); // already gone
   });
 });

@@ -27,6 +27,29 @@ const RESET_TTL_MS = 1000 * 60 * 60; // 1 hour
 
 const sha256 = (v: string) => createHash("sha256").update(v).digest("hex");
 
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "")
+  .split(",")
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
+
+/** Creates a session and returns the raw token (only the hash is stored). */
+async function newSession(userId: string): Promise<string> {
+  const raw = randomBytes(32).toString("hex");
+  await createSession(userId, sha256(raw), SESSION_TTL_MS);
+  return raw;
+}
+
+/** True when the user is an admin (by stored role or the ADMIN_EMAILS allowlist). */
+export function isAdminUser(user: User): boolean {
+  return user.role === "admin" || ADMIN_EMAILS.includes(user.email.toLowerCase());
+}
+
+/** Returns the current user only if they are an admin, else null. */
+export async function getAdminUser(): Promise<User | null> {
+  const user = await getCurrentUser();
+  return user && isAdminUser(user) ? user : null;
+}
+
 // ---------------------------------------------------------------------------
 // Password hashing (scrypt — no native deps)
 // ---------------------------------------------------------------------------
@@ -90,7 +113,7 @@ export async function registerUser(input: RegisterInput): Promise<AuthResult> {
     displayName: (input.displayName || username).trim().slice(0, 40),
     passwordHash: hashPassword(password),
   });
-  const token = await createSession(user.id, SESSION_TTL_MS);
+  const token = await newSession(user.id);
   return { ok: true, user, token };
 }
 
@@ -102,7 +125,7 @@ export async function loginUser(
   if (!record || !verifyPassword(password, record.passwordHash)) {
     return { ok: false, error: "Incorrect email/username or password." };
   }
-  const token = await createSession(record.user.id, SESSION_TTL_MS);
+  const token = await newSession(record.user.id);
   return { ok: true, user: record.user, token };
 }
 
@@ -167,7 +190,7 @@ export async function setSessionCookie(token: string) {
 export async function clearSessionCookie() {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
-  if (token) await deleteSession(token);
+  if (token) await deleteSession(sha256(token));
   store.delete(SESSION_COOKIE);
 }
 
@@ -176,5 +199,5 @@ export async function getCurrentUser(): Promise<User | null> {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
   if (!token) return null;
-  return getSessionUser(token);
+  return getSessionUser(sha256(token));
 }

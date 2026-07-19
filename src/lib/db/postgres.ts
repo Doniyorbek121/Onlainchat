@@ -27,6 +27,7 @@ function mapUser(r: any): User {
     username: r.username,
     email: r.email,
     displayName: r.display_name,
+    role: r.role === "admin" ? "admin" : "user",
     createdAt: Number(r.created_at),
   };
 }
@@ -92,8 +93,10 @@ export function createPostgresStore(connectionString: string): DataStore {
       await q(`
         CREATE TABLE IF NOT EXISTS users (
           id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE, email TEXT NOT NULL UNIQUE,
-          display_name TEXT NOT NULL DEFAULT '', password_hash TEXT NOT NULL, created_at BIGINT NOT NULL
+          display_name TEXT NOT NULL DEFAULT '', password_hash TEXT NOT NULL,
+          role TEXT NOT NULL DEFAULT 'user', created_at BIGINT NOT NULL
         );
+        -- The 'token' column stores a SHA-256 hash of the session token.
         CREATE TABLE IF NOT EXISTS sessions (
           token TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
           created_at BIGINT NOT NULL, expires_at BIGINT NOT NULL
@@ -140,6 +143,13 @@ export function createPostgresStore(connectionString: string): DataStore {
       await q(
         `ALTER TABLE characters ADD COLUMN IF NOT EXISTS avatar_image TEXT NOT NULL DEFAULT ''`
       );
+      await q(
+        `ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'user'`
+      );
+    },
+    async ping() {
+      await q(`SELECT 1`);
+      return true;
     },
 
     async createUser(input: UserInput) {
@@ -182,31 +192,29 @@ export function createPostgresStore(connectionString: string): DataStore {
       );
       return r.rowCount! > 0;
     },
-    async createSession(userId, ttlMs) {
-      const token = `${genId()}${genId()}`;
+    async createSession(userId, tokenHash, ttlMs) {
       const now = Date.now();
       await q(
         `INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES ($1,$2,$3,$4)`,
-        [token, userId, now, now + ttlMs]
+        [tokenHash, userId, now, now + ttlMs]
       );
       await this.deleteExpiredSessions();
-      return token;
     },
-    async getSessionUser(token) {
+    async getSessionUser(tokenHash) {
       const r = await q(
         `SELECT user_id, expires_at FROM sessions WHERE token = $1`,
-        [token]
+        [tokenHash]
       );
       const row = r.rows[0];
       if (!row) return null;
       if (Number(row.expires_at) < Date.now()) {
-        await this.deleteSession(token);
+        await this.deleteSession(tokenHash);
         return null;
       }
       return this.getUserById(row.user_id);
     },
-    async deleteSession(token) {
-      await q(`DELETE FROM sessions WHERE token = $1`, [token]);
+    async deleteSession(tokenHash) {
+      await q(`DELETE FROM sessions WHERE token = $1`, [tokenHash]);
     },
     async deleteExpiredSessions() {
       const r = await q(`DELETE FROM sessions WHERE expires_at < $1`, [Date.now()]);
@@ -477,6 +485,61 @@ export function createPostgresStore(connectionString: string): DataStore {
         [userId]
       );
       return r.rows.map(mapCharacter);
+    },
+
+    async countUsers() {
+      return Number((await q(`SELECT COUNT(*)::int8 AS c FROM users`)).rows[0].c);
+    },
+    async countConversations() {
+      return Number(
+        (await q(`SELECT COUNT(*)::int8 AS c FROM conversations`)).rows[0].c
+      );
+    },
+    async countMessages() {
+      return Number(
+        (await q(`SELECT COUNT(*)::int8 AS c FROM messages`)).rows[0].c
+      );
+    },
+    async listRecentUsers(limit) {
+      const r = await q(
+        `SELECT * FROM users ORDER BY created_at DESC LIMIT $1`,
+        [limit]
+      );
+      return r.rows.map(mapUser);
+    },
+    async listRecentCharacters(limit) {
+      const r = await q(`${CHAR_SELECT} ORDER BY created_at DESC LIMIT $1`, [
+        limit,
+      ]);
+      return r.rows.map(mapCharacter);
+    },
+    async deleteUserCascade(userId) {
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        const found = await client.query(`SELECT 1 FROM users WHERE id = $1`, [
+          userId,
+        ]);
+        if (found.rowCount === 0) {
+          await client.query("ROLLBACK");
+          return false;
+        }
+        await client.query(`DELETE FROM characters WHERE creator_id = $1`, [userId]);
+        await client.query(`DELETE FROM conversations WHERE user_id = $1`, [userId]);
+        await client.query(`DELETE FROM favorites WHERE user_id = $1`, [userId]);
+        await client.query(`DELETE FROM users WHERE id = $1`, [userId]);
+        await client.query("COMMIT");
+        return true;
+      } catch (e) {
+        await client.query("ROLLBACK");
+        throw e;
+      } finally {
+        client.release();
+      }
+    },
+    async adminDeleteCharacter(id) {
+      const r = await q(`DELETE FROM characters WHERE id = $1`, [id]);
+      return (r.rowCount ?? 0) > 0;
     },
   };
 }

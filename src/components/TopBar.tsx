@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isAdminUser } from "@/lib/auth";
 import { getServerI18n } from "@/lib/i18n/server";
 import UserMenu from "./UserMenu";
 import LanguageSwitcher from "./LanguageSwitcher";
@@ -7,6 +7,7 @@ import LanguageSwitcher from "./LanguageSwitcher";
 export default async function TopBar() {
   const user = await getCurrentUser();
   const { t } = await getServerI18n();
+  const admin = user ? isAdminUser(user) : false;
 
   return (
     <header className="sticky top-0 z-30 border-b border-line/70 bg-bg/80 backdrop-blur-xl">
@@ -33,7 +34,7 @@ export default async function TopBar() {
                 <span className="text-base leading-none">＋</span>
                 <span className="hidden sm:inline">{t("nav.create")}</span>
               </Link>
-              <UserMenu user={user} />
+              <UserMenu user={user} isAdmin={admin} />
             </>
           ) : (
             <>

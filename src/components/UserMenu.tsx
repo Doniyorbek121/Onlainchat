@@ -7,7 +7,13 @@ import { apiFetch } from "@/lib/http";
 import { useT } from "./I18nProvider";
 import type { User } from "@/lib/types";
 
-export default function UserMenu({ user }: { user: User }) {
+export default function UserMenu({
+  user,
+  isAdmin = false,
+}: {
+  user: User;
+  isAdmin?: boolean;
+}) {
   const router = useRouter();
   const t = useT();
   const [open, setOpen] = useState(false);
@@ -81,6 +87,15 @@ export default function UserMenu({ user }: { user: User }) {
             >
               {t("nav.create")}
             </Link>
+            {isAdmin && (
+              <Link
+                href="/admin"
+                onClick={() => setOpen(false)}
+                className="block border-t border-line px-4 py-2.5 text-sm text-brand-soft hover:bg-bg-hover"
+              >
+                🛡 Admin
+              </Link>
+            )}
             <button
               onClick={logout}
               disabled={loading}

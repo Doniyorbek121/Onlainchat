@@ -96,10 +96,17 @@ export async function POST(req: NextRequest) {
   }
 
   const conversationId = conversation!.id;
-  const history = await listMessages(conversationId);
-  if (history.length === 0) {
+  const fullHistory = await listMessages(conversationId);
+  if (fullHistory.length === 0) {
     return new Response("Nothing to respond to", { status: 400 });
   }
+  // Bound the context sent to the model: keep the most recent turns and ensure
+  // the window starts on a user message (required by the API). Full history
+  // stays in the database; only the prompt context is trimmed.
+  const MAX_CONTEXT = 40;
+  let history = fullHistory.slice(-MAX_CONTEXT);
+  while (history.length && history[0].role !== "user") history.shift();
+  if (history.length === 0) history = fullHistory.slice(-1);
 
   let full = "";
   let saved = false;
