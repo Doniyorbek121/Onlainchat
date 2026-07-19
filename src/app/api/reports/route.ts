@@ -39,7 +39,8 @@ export async function POST(req: NextRequest) {
   }
 
   const targetType = body.targetType as ReportTargetType;
-  const targetId = typeof body.targetId === "string" ? body.targetId : "";
+  const targetId =
+    typeof body.targetId === "string" ? body.targetId.slice(0, 64) : "";
   const reason = typeof body.reason === "string" ? body.reason : "";
   const details =
     typeof body.details === "string" ? body.details.trim().slice(0, 1000) : "";

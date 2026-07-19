@@ -157,7 +157,7 @@ export default function Discovery({
               disabled={loading}
               className="btn-ghost px-8"
             >
-              {loading ? "Loading…" : "Load more"}
+              {loading ? t("loading") : t("loadMore")}
             </button>
           </div>
         )}

@@ -44,7 +44,7 @@ export default function ConsentGate() {
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
-      aria-label="Age and terms confirmation"
+      aria-label={t("consent.aria")}
     >
       <div className="w-full max-w-md rounded-2xl border border-line bg-bg-card p-6 text-center shadow-2xl">
         <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-brand/20 text-2xl">
@@ -52,24 +52,22 @@ export default function ConsentGate() {
         </div>
         {declined ? (
           <>
-            <h2 className="text-lg font-semibold text-white">Come back later</h2>
-            <p className="mt-2 text-sm text-muted">
-              You must be at least 18 years old to use this service.
-            </p>
+            <h2 className="text-lg font-semibold text-white">
+              {t("consent.blockedTitle")}
+            </h2>
+            <p className="mt-2 text-sm text-muted">{t("consent.blockedBody")}</p>
           </>
         ) : (
           <>
             <h2 className="text-lg font-semibold text-white">
-              Before you continue
+              {t("consent.title")}
             </h2>
             <p className="mt-2 text-sm text-muted">
-              This platform hosts AI characters created by users. Please confirm
-              you are <strong className="text-white">18 or older</strong> and
-              agree to our{" "}
+              {t("consent.lead")} {t("consent.agree")}{" "}
               <Link href="/terms" className="text-brand-soft hover:underline">
                 {t("footer.terms")}
               </Link>{" "}
-              and{" "}
+              {t("consent.and")}{" "}
               <Link href="/privacy" className="text-brand-soft hover:underline">
                 {t("footer.privacy")}
               </Link>
@@ -82,14 +80,14 @@ export default function ConsentGate() {
                 onClick={accept}
                 className="btn-primary w-full py-2.5"
               >
-                I&apos;m 18+ and I agree
+                {t("consent.accept")}
               </button>
               <button
                 type="button"
                 onClick={() => setDeclined(true)}
                 className="btn w-full py-2.5 text-muted hover:text-white"
               >
-                I&apos;m under 18
+                {t("consent.decline")}
               </button>
             </div>
           </>
