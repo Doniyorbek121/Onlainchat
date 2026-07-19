@@ -3,6 +3,9 @@ import { getCurrentUser } from "@/lib/auth";
 import { getCharacter, deleteCharacter, updateCharacter } from "@/lib/db";
 import { CATEGORIES, AVATAR_COLORS, AVATAR_EMOJIS } from "@/lib/types";
 import { validAvatarImage } from "@/lib/validate";
+import { persistAvatar } from "@/lib/storage";
+import { screenCharacterFields, MODERATION_MESSAGE } from "@/lib/moderation";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -72,17 +75,38 @@ export async function PATCH(
       ? body.category
       : existing.category;
 
+  const tagline = str(body.tagline, 120);
+  const description = str(body.description, 500);
+  const greeting = str(body.greeting, 500);
+  const persona = str(body.persona, 2000);
+
+  const screen = screenCharacterFields({
+    name,
+    tagline,
+    description,
+    greeting,
+    persona,
+  });
+  if (!screen.ok) {
+    logger.warn("moderation.blocked", {
+      surface: "character.update",
+      userId: user.id,
+      category: screen.category,
+    });
+    return NextResponse.json({ error: MODERATION_MESSAGE }, { status: 422 });
+  }
+
   const character = await updateCharacter(id, user.id, {
     name,
-    tagline: str(body.tagline, 120),
-    description: str(body.description, 500),
-    greeting: str(body.greeting, 500),
-    persona: str(body.persona, 2000),
+    tagline,
+    description,
+    greeting,
+    persona,
     avatarEmoji: str(body.avatarEmoji, 8) || AVATAR_EMOJIS[0],
     avatarColor: AVATAR_COLORS.includes(str(body.avatarColor, 9))
       ? str(body.avatarColor, 9)
       : existing.avatarColor,
-    avatarImage: validAvatarImage(body.avatarImage),
+    avatarImage: await persistAvatar(validAvatarImage(body.avatarImage)),
     category,
     visibility: body.visibility === "private" ? "private" : "public",
   });

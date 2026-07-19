@@ -1,16 +1,22 @@
 import Link from "next/link";
 import TopBar from "@/components/TopBar";
+import Footer from "@/components/Footer";
 import Discovery from "@/components/Discovery";
 import { listCharacters } from "@/lib/db";
 import { ensureSeeded } from "@/lib/seed";
 import { hasApiKey } from "@/lib/anthropic";
 import { getServerI18n } from "@/lib/i18n/server";
 
+const PAGE_SIZE = 24;
+
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   await ensureSeeded();
-  const characters = await listCharacters();
+  // Load one page (+1 to detect whether more exist); Discovery paginates the rest.
+  const rows = await listCharacters({ limit: PAGE_SIZE + 1 });
+  const hasMore = rows.length > PAGE_SIZE;
+  const characters = hasMore ? rows.slice(0, PAGE_SIZE) : rows;
   const demoMode = !hasApiKey();
   const { t } = await getServerI18n();
 
@@ -18,7 +24,7 @@ export default async function HomePage() {
     <div className="min-h-screen">
       <TopBar />
 
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <main id="main" className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         {/* Hero */}
         <section className="mb-10 overflow-hidden rounded-3xl border border-line bg-gradient-to-br from-bg-card to-bg-soft p-8 sm:p-12">
           <div className="max-w-2xl">
@@ -58,14 +64,10 @@ export default async function HomePage() {
         )}
 
         <div id="explore">
-          <Discovery characters={characters} />
+          <Discovery initial={characters} initialHasMore={hasMore} />
         </div>
-
-        <footer className="mt-16 border-t border-line/60 pt-6 text-center text-xs text-muted">
-          Character AI — an open-source Character.AI-style platform · Built with
-          Next.js & Claude
-        </footer>
       </main>
+      <Footer />
     </div>
   );
 }

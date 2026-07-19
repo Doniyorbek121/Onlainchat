@@ -4,6 +4,8 @@ import type {
   Conversation,
   Message,
   MessageRole,
+  Report,
+  ReportStatus,
   User,
 } from "../types";
 import {
@@ -12,6 +14,7 @@ import {
   type CharacterUpdate,
   type DataStore,
   type ListCharactersOpts,
+  type ReportInput,
   type UserInput,
 } from "./store";
 
@@ -28,6 +31,19 @@ function mapUser(r: any): User {
     email: r.email,
     displayName: r.display_name,
     role: r.role === "admin" ? "admin" : "user",
+    emailVerified: Boolean(r.email_verified),
+    createdAt: Number(r.created_at),
+  };
+}
+function mapReport(r: any): Report {
+  return {
+    id: r.id,
+    targetType: r.target_type,
+    targetId: r.target_id,
+    reporterId: r.reporter_id,
+    reason: r.reason,
+    details: r.details ?? "",
+    status: r.status,
     createdAt: Number(r.created_at),
   };
 }
@@ -94,7 +110,8 @@ export function createPostgresStore(connectionString: string): DataStore {
         CREATE TABLE IF NOT EXISTS users (
           id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE, email TEXT NOT NULL UNIQUE,
           display_name TEXT NOT NULL DEFAULT '', password_hash TEXT NOT NULL,
-          role TEXT NOT NULL DEFAULT 'user', created_at BIGINT NOT NULL
+          role TEXT NOT NULL DEFAULT 'user', email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+          created_at BIGINT NOT NULL
         );
         -- The 'token' column stores a SHA-256 hash of the session token.
         CREATE TABLE IF NOT EXISTS sessions (
@@ -107,6 +124,17 @@ export function createPostgresStore(connectionString: string): DataStore {
           created_at BIGINT NOT NULL, expires_at BIGINT NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_resets_user ON password_resets(user_id);
+        CREATE TABLE IF NOT EXISTS email_verifications (
+          token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          created_at BIGINT NOT NULL, expires_at BIGINT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_verif_user ON email_verifications(user_id);
+        CREATE TABLE IF NOT EXISTS reports (
+          id TEXT PRIMARY KEY, target_type TEXT NOT NULL, target_id TEXT NOT NULL,
+          reporter_id TEXT NOT NULL, reason TEXT NOT NULL, details TEXT NOT NULL DEFAULT '',
+          status TEXT NOT NULL DEFAULT 'open', created_at BIGINT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status, created_at DESC);
         CREATE TABLE IF NOT EXISTS characters (
           id TEXT PRIMARY KEY, name TEXT NOT NULL, tagline TEXT NOT NULL DEFAULT '',
           description TEXT NOT NULL DEFAULT '', greeting TEXT NOT NULL DEFAULT '',
@@ -145,6 +173,9 @@ export function createPostgresStore(connectionString: string): DataStore {
       );
       await q(
         `ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'user'`
+      );
+      await q(
+        `ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE`
       );
     },
     async ping() {
@@ -260,6 +291,76 @@ export function createPostgresStore(connectionString: string): DataStore {
     async deletePasswordReset(tokenHash) {
       await q(`DELETE FROM password_resets WHERE token_hash = $1`, [tokenHash]);
     },
+    async markEmailVerified(userId) {
+      await q(`UPDATE users SET email_verified = TRUE WHERE id = $1`, [userId]);
+    },
+    async createEmailVerification(userId, tokenHash, ttlMs) {
+      await q(`DELETE FROM email_verifications WHERE expires_at < $1`, [Date.now()]);
+      const now = Date.now();
+      await q(
+        `INSERT INTO email_verifications (token_hash, user_id, created_at, expires_at)
+         VALUES ($1,$2,$3,$4)`,
+        [tokenHash, userId, now, now + ttlMs]
+      );
+    },
+    async getValidEmailVerification(tokenHash) {
+      const r = await q(
+        `SELECT user_id, expires_at FROM email_verifications WHERE token_hash = $1`,
+        [tokenHash]
+      );
+      const row = r.rows[0];
+      if (!row) return null;
+      if (Number(row.expires_at) < Date.now()) {
+        await this.deleteEmailVerification(tokenHash);
+        return null;
+      }
+      return { userId: row.user_id };
+    },
+    async deleteEmailVerification(tokenHash) {
+      await q(`DELETE FROM email_verifications WHERE token_hash = $1`, [tokenHash]);
+    },
+    async createReport(input: ReportInput) {
+      const r = await q(
+        `INSERT INTO reports (id, target_type, target_id, reporter_id, reason, details, status, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6,'open',$7) RETURNING *`,
+        [
+          `rep_${genId()}`,
+          input.targetType,
+          input.targetId,
+          input.reporterId,
+          input.reason,
+          input.details || "",
+          Date.now(),
+        ]
+      );
+      return mapReport(r.rows[0]);
+    },
+    async listReports(status, limit) {
+      const capped = Math.min(Math.max(limit, 1), 200);
+      const r =
+        status === "all"
+          ? await q(
+              `SELECT * FROM reports ORDER BY created_at DESC LIMIT ${capped}`
+            )
+          : await q(
+              `SELECT * FROM reports WHERE status = $1 ORDER BY created_at DESC LIMIT ${capped}`,
+              [status]
+            );
+      return r.rows.map(mapReport);
+    },
+    async updateReportStatus(id, status: ReportStatus) {
+      const r = await q(`UPDATE reports SET status = $1 WHERE id = $2`, [
+        status,
+        id,
+      ]);
+      return (r.rowCount ?? 0) > 0;
+    },
+    async countOpenReports() {
+      return Number(
+        (await q(`SELECT COUNT(*)::int8 AS c FROM reports WHERE status = 'open'`))
+          .rows[0].c
+      );
+    },
     async reassignOwnership(fromId, toId) {
       if (fromId === toId) return;
       const client = await pool.connect();
@@ -329,10 +430,11 @@ export function createPostgresStore(connectionString: string): DataStore {
         clauses.push(`(name ILIKE ${p} OR tagline ILIKE ${p} OR description ILIKE ${p})`);
       }
       const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
-      const limit = opts.limit ?? 200;
+      const limit = Math.min(Math.max(opts.limit ?? 200, 1), 200);
+      const offset = Math.max(opts.offset ?? 0, 0);
       const r = await q(
         `${CHAR_SELECT} ${where}
-         ORDER BY interactions DESC, created_at DESC LIMIT ${add(limit)}`,
+         ORDER BY interactions DESC, created_at DESC LIMIT ${add(limit)} OFFSET ${add(offset)}`,
         params
       );
       return r.rows.map(mapCharacter);

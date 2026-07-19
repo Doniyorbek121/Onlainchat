@@ -3,6 +3,7 @@ import { getCurrentUser, isAdminUser } from "@/lib/auth";
 import { getServerI18n } from "@/lib/i18n/server";
 import UserMenu from "./UserMenu";
 import LanguageSwitcher from "./LanguageSwitcher";
+import VerifyEmailBanner from "./VerifyEmailBanner";
 
 export default async function TopBar() {
   const user = await getCurrentUser();
@@ -10,6 +11,7 @@ export default async function TopBar() {
   const admin = user ? isAdminUser(user) : false;
 
   return (
+    <>
     <header className="sticky top-0 z-30 border-b border-line/70 bg-bg/80 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2.5">
@@ -49,5 +51,7 @@ export default async function TopBar() {
         </nav>
       </div>
     </header>
+    {user && <VerifyEmailBanner verified={user.emailVerified} />}
+    </>
   );
 }

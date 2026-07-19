@@ -1,13 +1,14 @@
-import type { MessageRole } from "./types";
+import type { MessageRole, ReportStatus } from "./types";
 import type {
   CharacterInput,
   CharacterUpdate,
   DataStore,
   ListCharactersOpts,
+  ReportInput,
   UserInput,
 } from "./db/store";
 
-export type { CharacterInput, CharacterUpdate, ListCharactersOpts };
+export type { CharacterInput, CharacterUpdate, ListCharactersOpts, ReportInput };
 
 // ---------------------------------------------------------------------------
 // Backend selection: Postgres when DATABASE_URL is set (production), otherwise
@@ -83,6 +84,28 @@ export const getValidPasswordReset = async (tokenHash: string) =>
   (await store()).getValidPasswordReset(tokenHash);
 export const deletePasswordReset = async (tokenHash: string) =>
   (await store()).deletePasswordReset(tokenHash);
+
+// Email verification
+export const markEmailVerified = async (userId: string) =>
+  (await store()).markEmailVerified(userId);
+export const createEmailVerification = async (
+  userId: string,
+  tokenHash: string,
+  ttlMs: number
+) => (await store()).createEmailVerification(userId, tokenHash, ttlMs);
+export const getValidEmailVerification = async (tokenHash: string) =>
+  (await store()).getValidEmailVerification(tokenHash);
+export const deleteEmailVerification = async (tokenHash: string) =>
+  (await store()).deleteEmailVerification(tokenHash);
+
+// Moderation reports
+export const createReport = async (input: ReportInput) =>
+  (await store()).createReport(input);
+export const listReports = async (status: ReportStatus | "all", limit: number) =>
+  (await store()).listReports(status, limit);
+export const updateReportStatus = async (id: string, status: ReportStatus) =>
+  (await store()).updateReportStatus(id, status);
+export const countOpenReports = async () => (await store()).countOpenReports();
 
 // Characters
 export const createCharacter = async (i: CharacterInput) =>

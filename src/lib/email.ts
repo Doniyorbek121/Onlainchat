@@ -33,3 +33,36 @@ export async function deliverPasswordReset(
   console.log(`[password-reset] ${email} -> ${link}`);
   return false;
 }
+
+/**
+ * Email-verification delivery. Uses SMTP when configured, otherwise logs the
+ * link. Returns true when sent via a real transport.
+ */
+export async function deliverEmailVerification(
+  email: string,
+  link: string
+): Promise<boolean> {
+  const smtpUrl = process.env.SMTP_URL;
+  if (smtpUrl) {
+    const nodemailer = (await import("nodemailer")).default;
+    const transport = nodemailer.createTransport(smtpUrl);
+    await transport.sendMail({
+      from: process.env.SMTP_FROM || "Character AI <no-reply@character.ai>",
+      to: email,
+      subject: "Verify your Character AI email",
+      text: `Welcome to Character AI!\n\nConfirm your email using this link (valid for 24 hours):\n${link}\n\nIf you didn't create an account, you can ignore this email.`,
+      html: `
+        <div style="font-family:system-ui,sans-serif;max-width:520px;margin:auto">
+          <h2>Confirm your email</h2>
+          <p>Welcome to Character AI! Please confirm your email address to finish setting up your account.</p>
+          <p><a href="${link}" style="display:inline-block;background:#7c5cff;color:#fff;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:600">Verify email</a></p>
+          <p style="color:#666;font-size:13px">This link is valid for 24 hours. If you didn't create an account, you can ignore this email.</p>
+          <p style="color:#999;font-size:12px">${link}</p>
+        </div>`,
+    });
+    return true;
+  }
+
+  console.log(`[email-verify] ${email} -> ${link}`);
+  return false;
+}

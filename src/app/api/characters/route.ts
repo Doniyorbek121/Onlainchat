@@ -1,20 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, REQUIRE_EMAIL_VERIFICATION } from "@/lib/auth";
 import { createCharacter, listCharacters } from "@/lib/db";
 import { CATEGORIES, AVATAR_COLORS, AVATAR_EMOJIS } from "@/lib/types";
 import { rateLimit, clientKey } from "@/lib/rateLimit";
 import { validAvatarImage } from "@/lib/validate";
+import { persistAvatar } from "@/lib/storage";
+import { screenCharacterFields, MODERATION_MESSAGE } from "@/lib/moderation";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const PAGE_SIZE = 24;
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const characters = await listCharacters({
+  const offset = Math.max(parseInt(searchParams.get("offset") || "0", 10) || 0, 0);
+  // Fetch one extra row to detect whether another page exists.
+  const rows = await listCharacters({
     category: searchParams.get("category") || undefined,
     search: searchParams.get("search") || undefined,
+    limit: PAGE_SIZE + 1,
+    offset,
   });
-  return NextResponse.json({ characters });
+  const hasMore = rows.length > PAGE_SIZE;
+  const characters = hasMore ? rows.slice(0, PAGE_SIZE) : rows;
+  return NextResponse.json({ characters, hasMore, nextOffset: offset + characters.length });
 }
 
 function str(v: unknown, max: number): string {
@@ -22,7 +33,7 @@ function str(v: unknown, max: number): string {
 }
 
 export async function POST(req: NextRequest) {
-  const rl = rateLimit(clientKey(req, "char-create"), 20, 60_000);
+  const rl = await rateLimit(clientKey(req, "char-create"), 20, 60_000);
   if (!rl.ok) {
     return NextResponse.json(
       { error: "You're creating characters too quickly. Please wait a moment." },
@@ -35,6 +46,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { error: "You must be signed in to create a character." },
       { status: 401 }
+    );
+  }
+  if (REQUIRE_EMAIL_VERIFICATION && !user.emailVerified) {
+    return NextResponse.json(
+      { error: "Please verify your email before creating a character." },
+      { status: 403 }
     );
   }
 
@@ -65,15 +82,37 @@ export async function POST(req: NextRequest) {
     ? str(body.avatarColor, 9)
     : AVATAR_COLORS[0];
 
+  const tagline = str(body.tagline, 120);
+  const description = str(body.description, 500);
+  const greeting = str(body.greeting, 500);
+  const persona = str(body.persona, 2000);
+
+  // Baseline content safety screening before anything is stored.
+  const screen = screenCharacterFields({
+    name,
+    tagline,
+    description,
+    greeting,
+    persona,
+  });
+  if (!screen.ok) {
+    logger.warn("moderation.blocked", {
+      surface: "character.create",
+      userId: user.id,
+      category: screen.category,
+    });
+    return NextResponse.json({ error: MODERATION_MESSAGE }, { status: 422 });
+  }
+
   const character = await createCharacter({
     name,
-    tagline: str(body.tagline, 120),
-    description: str(body.description, 500),
-    greeting: str(body.greeting, 500),
-    persona: str(body.persona, 2000),
+    tagline,
+    description,
+    greeting,
+    persona,
     avatarEmoji,
     avatarColor,
-    avatarImage: validAvatarImage(body.avatarImage),
+    avatarImage: await persistAvatar(validAvatarImage(body.avatarImage)),
     category,
     visibility: body.visibility === "private" ? "private" : "public",
     creatorId: user.id,

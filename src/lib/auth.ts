@@ -18,12 +18,52 @@ import {
   getValidPasswordReset,
   deletePasswordReset,
   deleteUserSessions,
+  markEmailVerified,
+  createEmailVerification,
+  getValidEmailVerification,
+  deleteEmailVerification,
 } from "./db";
+import { deliverEmailVerification } from "./email";
 import type { User } from "./types";
 
 const SESSION_COOKIE = "oc_session";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30; // 30 days
 const RESET_TTL_MS = 1000 * 60 * 60; // 1 hour
+const EMAIL_VERIFY_TTL_MS = 1000 * 60 * 60 * 24; // 24 hours
+
+/** True when email verification is required to create/publish content. */
+export const REQUIRE_EMAIL_VERIFICATION =
+  process.env.REQUIRE_EMAIL_VERIFICATION === "true";
+
+function baseUrl(origin?: string): string {
+  return (process.env.APP_URL || origin || "").replace(/\/$/, "");
+}
+
+/**
+ * Creates an email-verification token for the user and delivers a link.
+ * Returns the raw token so non-production/self-hosted setups can surface it.
+ */
+export async function sendEmailVerification(
+  user: User,
+  origin?: string
+): Promise<{ token: string; sent: boolean }> {
+  const token = randomBytes(32).toString("hex");
+  await createEmailVerification(user.id, sha256(token), EMAIL_VERIFY_TTL_MS);
+  const link = `${baseUrl(origin)}/api/auth/verify?token=${token}`;
+  const sent = await deliverEmailVerification(user.email, link);
+  return { token, sent };
+}
+
+/** Consumes a verification token and marks the user verified. */
+export async function verifyEmailToken(token: string): Promise<boolean> {
+  if (!token) return false;
+  const hash = sha256(token.trim());
+  const record = await getValidEmailVerification(hash);
+  if (!record) return false;
+  await markEmailVerified(record.userId);
+  await deleteEmailVerification(hash);
+  return true;
+}
 
 const sha256 = (v: string) => createHash("sha256").update(v).digest("hex");
 

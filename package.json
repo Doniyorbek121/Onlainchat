@@ -14,7 +14,10 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.68.0",
+    "@aws-sdk/client-s3": "^3.1090.0",
+    "@sentry/nextjs": "^10.66.0",
     "better-sqlite3": "^11.8.1",
+    "ioredis": "^5.11.1",
     "next": "15.5.20",
     "nodemailer": "^6.10.1",
     "pg": "^8.22.0",

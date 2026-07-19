@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { registerUser, setSessionCookie } from "@/lib/auth";
+import { registerUser, setSessionCookie, sendEmailVerification } from "@/lib/auth";
 import { peekAnonId } from "@/lib/session";
 import { reassignOwnership } from "@/lib/db";
 import { rateLimit, clientKey } from "@/lib/rateLimit";
+import { captureError } from "@/lib/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const rl = rateLimit(clientKey(req, "register"), 5, 10 * 60_000);
+  const rl = await rateLimit(clientKey(req, "register"), 5, 10 * 60_000);
   if (!rl.ok) {
     return NextResponse.json(
       { error: "Too many attempts. Please try again later." },
@@ -43,5 +44,21 @@ export async function POST(req: NextRequest) {
   }
 
   await setSessionCookie(result.token);
-  return NextResponse.json({ user: result.user }, { status: 201 });
+
+  // Send the verification email (best-effort — never blocks sign-up).
+  let devToken: string | undefined;
+  try {
+    const { token, sent } = await sendEmailVerification(
+      result.user,
+      req.nextUrl.origin
+    );
+    if (!sent && process.env.NODE_ENV !== "production") devToken = token;
+  } catch (err) {
+    await captureError(err, { where: "register.sendVerification" });
+  }
+
+  return NextResponse.json(
+    { user: result.user, verificationToken: devToken },
+    { status: 201 }
+  );
 }

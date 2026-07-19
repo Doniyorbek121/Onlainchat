@@ -6,6 +6,8 @@ import type {
   Conversation,
   Message,
   MessageRole,
+  Report,
+  ReportStatus,
   User,
 } from "../types";
 import {
@@ -14,6 +16,7 @@ import {
   type CharacterUpdate,
   type DataStore,
   type ListCharactersOpts,
+  type ReportInput,
   type UserInput,
 } from "./store";
 
@@ -29,6 +32,19 @@ function mapUser(r: any): User {
     email: r.email,
     displayName: r.display_name,
     role: r.role === "admin" ? "admin" : "user",
+    emailVerified: Boolean(r.email_verified),
+    createdAt: r.created_at,
+  };
+}
+function mapReport(r: any): Report {
+  return {
+    id: r.id,
+    targetType: r.target_type,
+    targetId: r.target_id,
+    reporterId: r.reporter_id,
+    reason: r.reason,
+    details: r.details ?? "",
+    status: r.status,
     createdAt: r.created_at,
   };
 }
@@ -89,7 +105,8 @@ export function createSqliteStore(): DataStore {
         CREATE TABLE IF NOT EXISTS users (
           id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE, email TEXT NOT NULL UNIQUE,
           display_name TEXT NOT NULL DEFAULT '', password_hash TEXT NOT NULL,
-          role TEXT NOT NULL DEFAULT 'user', created_at INTEGER NOT NULL
+          role TEXT NOT NULL DEFAULT 'user', email_verified INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL
         );
         -- The 'token' column stores a SHA-256 hash of the session token.
         CREATE TABLE IF NOT EXISTS sessions (
@@ -102,6 +119,17 @@ export function createSqliteStore(): DataStore {
           created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_resets_user ON password_resets(user_id);
+        CREATE TABLE IF NOT EXISTS email_verifications (
+          token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_verif_user ON email_verifications(user_id);
+        CREATE TABLE IF NOT EXISTS reports (
+          id TEXT PRIMARY KEY, target_type TEXT NOT NULL, target_id TEXT NOT NULL,
+          reporter_id TEXT NOT NULL, reason TEXT NOT NULL, details TEXT NOT NULL DEFAULT '',
+          status TEXT NOT NULL DEFAULT 'open', created_at INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status, created_at DESC);
         CREATE TABLE IF NOT EXISTS characters (
           id TEXT PRIMARY KEY, name TEXT NOT NULL, tagline TEXT NOT NULL DEFAULT '',
           description TEXT NOT NULL DEFAULT '', greeting TEXT NOT NULL DEFAULT '',
@@ -151,6 +179,11 @@ export function createSqliteStore(): DataStore {
       if (!userCols.includes("role")) {
         db.exec(
           `ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'`
+        );
+      }
+      if (!userCols.includes("email_verified")) {
+        db.exec(
+          `ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0`
         );
       }
     },
@@ -264,6 +297,83 @@ export function createSqliteStore(): DataStore {
     async deletePasswordReset(tokenHash) {
       db.prepare(`DELETE FROM password_resets WHERE token_hash = ?`).run(tokenHash);
     },
+    async markEmailVerified(userId) {
+      db.prepare(`UPDATE users SET email_verified = 1 WHERE id = ?`).run(userId);
+    },
+    async createEmailVerification(userId, tokenHash, ttlMs) {
+      db.prepare(`DELETE FROM email_verifications WHERE expires_at < ?`).run(Date.now());
+      const now = Date.now();
+      db.prepare(
+        `INSERT INTO email_verifications (token_hash, user_id, created_at, expires_at)
+         VALUES (?, ?, ?, ?)`
+      ).run(tokenHash, userId, now, now + ttlMs);
+    },
+    async getValidEmailVerification(tokenHash) {
+      const r = db
+        .prepare(
+          `SELECT user_id, expires_at FROM email_verifications WHERE token_hash = ?`
+        )
+        .get(tokenHash) as any;
+      if (!r) return null;
+      if (r.expires_at < Date.now()) {
+        await this.deleteEmailVerification(tokenHash);
+        return null;
+      }
+      return { userId: r.user_id };
+    },
+    async deleteEmailVerification(tokenHash) {
+      db.prepare(`DELETE FROM email_verifications WHERE token_hash = ?`).run(tokenHash);
+    },
+    async createReport(input: ReportInput) {
+      const row = {
+        id: `rep_${genId()}`,
+        ...input,
+        details: input.details || "",
+        status: "open",
+        createdAt: Date.now(),
+      };
+      db.prepare(
+        `INSERT INTO reports (id, target_type, target_id, reporter_id, reason, details, status, created_at)
+         VALUES (@id, @targetType, @targetId, @reporterId, @reason, @details, @status, @createdAt)`
+      ).run(row);
+      return mapReport({
+        id: row.id,
+        target_type: row.targetType,
+        target_id: row.targetId,
+        reporter_id: row.reporterId,
+        reason: row.reason,
+        details: row.details,
+        status: row.status,
+        created_at: row.createdAt,
+      });
+    },
+    async listReports(status, limit) {
+      const capped = Math.min(Math.max(limit, 1), 200);
+      const rows =
+        status === "all"
+          ? db
+              .prepare(
+                `SELECT * FROM reports ORDER BY created_at DESC LIMIT ${capped}`
+              )
+              .all()
+          : db
+              .prepare(
+                `SELECT * FROM reports WHERE status = ? ORDER BY created_at DESC LIMIT ${capped}`
+              )
+              .all(status);
+      return rows.map(mapReport);
+    },
+    async updateReportStatus(id, status: ReportStatus) {
+      return (
+        db.prepare(`UPDATE reports SET status = ? WHERE id = ?`).run(status, id)
+          .changes > 0
+      );
+    },
+    async countOpenReports() {
+      return (
+        db.prepare(`SELECT COUNT(*) AS c FROM reports WHERE status = 'open'`).get() as any
+      ).c;
+    },
     async reassignOwnership(fromId, toId) {
       if (fromId === toId) return;
       db.transaction(() => {
@@ -318,10 +428,11 @@ export function createSqliteStore(): DataStore {
         params.q = `%${opts.search}%`;
       }
       const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
-      const limit = opts.limit ?? 200;
+      const limit = Math.min(Math.max(opts.limit ?? 200, 1), 200);
+      const offset = Math.max(opts.offset ?? 0, 0);
       const rows = db
         .prepare(
-          `${CHAR_SELECT} ${where} ORDER BY interactions DESC, created_at DESC LIMIT ${limit}`
+          `${CHAR_SELECT} ${where} ORDER BY interactions DESC, created_at DESC LIMIT ${limit} OFFSET ${offset}`
         )
         .all(params);
       return rows.map(mapCharacter);

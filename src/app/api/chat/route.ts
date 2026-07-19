@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
   const userId = await getUserId();
 
   // Rate limit: 30 messages / minute per client.
-  const rl = rateLimit(clientKey(req, "chat"), 30, 60_000);
+  const rl = await rateLimit(clientKey(req, "chat"), 30, 60_000);
   if (!rl.ok) {
     return new Response("Too many messages. Please slow down.", {
       status: 429,

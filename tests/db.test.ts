@@ -181,6 +181,80 @@ describe("getUserByUsername", () => {
   });
 });
 
+describe("email verification", () => {
+  it("marks verified and consumes single-use tokens", async () => {
+    const u = await db.createUser({
+      username: "verifyme",
+      email: "verifyme@example.com",
+      displayName: "V",
+      passwordHash: "h",
+    });
+    expect((await db.getUserById(u.id))?.emailVerified).toBe(false);
+
+    await db.createEmailVerification(u.id, "vhash_good", 60_000);
+    expect((await db.getValidEmailVerification("vhash_good"))?.userId).toBe(u.id);
+
+    await db.createEmailVerification(u.id, "vhash_expired", -1000);
+    expect(await db.getValidEmailVerification("vhash_expired")).toBeNull();
+
+    await db.markEmailVerified(u.id);
+    expect((await db.getUserById(u.id))?.emailVerified).toBe(true);
+
+    await db.deleteEmailVerification("vhash_good");
+    expect(await db.getValidEmailVerification("vhash_good")).toBeNull();
+  });
+});
+
+describe("reports", () => {
+  it("creates, lists, counts and resolves reports", async () => {
+    const before = await db.countOpenReports();
+    const r = await db.createReport({
+      targetType: "character",
+      targetId: "char_x",
+      reporterId: "user_reporter",
+      reason: "spam",
+      details: "looks fake",
+    });
+    expect(r.status).toBe("open");
+    expect(await db.countOpenReports()).toBe(before + 1);
+
+    const open = await db.listReports("open", 50);
+    expect(open.some((x: any) => x.id === r.id)).toBe(true);
+
+    expect(await db.updateReportStatus(r.id, "resolved")).toBe(true);
+    expect(await db.countOpenReports()).toBe(before);
+    const all = await db.listReports("all", 50);
+    expect(all.find((x: any) => x.id === r.id)?.status).toBe("resolved");
+  });
+});
+
+describe("pagination", () => {
+  it("offsets the character listing", async () => {
+    const owner = "pager";
+    for (let i = 0; i < 3; i++) {
+      await db.createCharacter({
+        name: `Pager${i}`,
+        tagline: "",
+        description: "",
+        greeting: "",
+        persona: "p",
+        avatarEmoji: "🤖",
+        avatarColor: "#7c5cff",
+        category: "Games",
+        visibility: "public",
+        creatorId: owner,
+        creatorName: "Pager",
+      });
+    }
+    const page1 = await db.listCharacters({ creatorId: owner, limit: 2, offset: 0 });
+    const page2 = await db.listCharacters({ creatorId: owner, limit: 2, offset: 2 });
+    expect(page1).toHaveLength(2);
+    expect(page2.length).toBeGreaterThanOrEqual(1);
+    const ids = new Set(page1.map((c: any) => c.id));
+    expect(page2.every((c: any) => !ids.has(c.id))).toBe(true);
+  });
+});
+
 describe("admin", () => {
   it("counts, lists, deletes characters and cascades a user", async () => {
     const u = await db.createUser({

@@ -120,6 +120,37 @@ describe.skipIf(!URL)("postgres backend", () => {
     expect(await store.listMessages(conv.id)).toHaveLength(0);
   });
 
+  it("email verification + reports lifecycle", async () => {
+    const u = await store.createUser({
+      username: `verif_${suffix}`,
+      email: `verif_${suffix}@ex.com`,
+      displayName: "Verif",
+      passwordHash: "h",
+    });
+    expect((await store.getUserById(u.id))?.emailVerified).toBe(false);
+    await store.createEmailVerification(u.id, `evh_${suffix}`, 60_000);
+    expect((await store.getValidEmailVerification(`evh_${suffix}`))?.userId).toBe(u.id);
+    await store.markEmailVerified(u.id);
+    expect((await store.getUserById(u.id))?.emailVerified).toBe(true);
+    await store.deleteEmailVerification(`evh_${suffix}`);
+    expect(await store.getValidEmailVerification(`evh_${suffix}`)).toBeNull();
+
+    const before = await store.countOpenReports();
+    const rep = await store.createReport({
+      targetType: "character",
+      targetId: `c_${suffix}`,
+      reporterId: u.id,
+      reason: "spam",
+      details: "x",
+    });
+    expect(await store.countOpenReports()).toBe(before + 1);
+    expect((await store.listReports("open", 50)).some((r: any) => r.id === rep.id)).toBe(true);
+    expect(await store.updateReportStatus(rep.id, "resolved")).toBe(true);
+    expect(await store.countOpenReports()).toBe(before);
+
+    await store.deleteUserCascade(u.id);
+  });
+
   it("favorites: toggle + count, and username lookup", async () => {
     const owner = `owner_${suffix}`;
     const c = await store.createCharacter({

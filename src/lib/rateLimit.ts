@@ -1,12 +1,15 @@
 import type { NextRequest } from "next/server";
+import type Redis from "ioredis";
+import { logger } from "./logger";
 
 interface Bucket {
   count: number;
   resetAt: number;
 }
 
-// In-memory sliding window. Suitable for a single instance; for multi-instance
-// deployments back this with Redis or a shared store.
+// In-memory fixed window. Used when REDIS_URL is not configured (single
+// instance / dev). For multi-instance deployments set REDIS_URL so limits are
+// enforced across all replicas.
 const buckets = new Map<string, Bucket>();
 
 // Opportunistic cleanup so the map can't grow unbounded.
@@ -25,24 +28,48 @@ export interface RateLimitResult {
   remaining: number;
 }
 
-/**
- * Fixed-window rate limit. Returns ok=false with retryAfter (seconds) when the
- * caller has exceeded `limit` requests within `windowMs`.
- */
-export function rateLimit(
-  key: string,
-  limit: number,
-  windowMs: number
-): RateLimitResult {
+// ---------------------------------------------------------------------------
+// Optional Redis backend (shared across instances)
+// ---------------------------------------------------------------------------
+
+let redis: Redis | null = null;
+let redisTried = false;
+
+function getRedis(): Redis | null {
+  if (redisTried) return redis;
+  redisTried = true;
+  const url = process.env.REDIS_URL;
+  if (!url) return null;
+  try {
+    // Lazy require so ioredis is only loaded when actually configured.
+
+    const IORedis = require("ioredis") as typeof import("ioredis").default;
+    redis = new IORedis(url, {
+      maxRetriesPerRequest: 1,
+      enableOfflineQueue: false,
+      lazyConnect: false,
+    });
+    redis.on("error", (err: Error) => {
+      logger.warn("redis.error", { message: err.message });
+    });
+    logger.info("ratelimit.redis.enabled", {});
+  } catch (err) {
+    logger.error("ratelimit.redis.init_failed", {
+      message: (err as Error)?.message,
+    });
+    redis = null;
+  }
+  return redis;
+}
+
+function inMemory(key: string, limit: number, windowMs: number): RateLimitResult {
   const now = Date.now();
   sweep(now);
-
   const bucket = buckets.get(key);
   if (!bucket || bucket.resetAt < now) {
     buckets.set(key, { count: 1, resetAt: now + windowMs });
     return { ok: true, retryAfter: 0, remaining: limit - 1 };
   }
-
   if (bucket.count >= limit) {
     return {
       ok: false,
@@ -50,9 +77,57 @@ export function rateLimit(
       remaining: 0,
     };
   }
-
   bucket.count += 1;
   return { ok: true, retryAfter: 0, remaining: limit - bucket.count };
+}
+
+/**
+ * Fixed-window rate limit. Returns ok=false with retryAfter (seconds) when the
+ * caller has exceeded `limit` requests within `windowMs`.
+ *
+ * Uses Redis when REDIS_URL is configured (shared across all instances),
+ * otherwise an in-process map. If Redis is configured but unreachable it fails
+ * open (allows the request) so a cache outage can't take down the whole app.
+ */
+export async function rateLimit(
+  key: string,
+  limit: number,
+  windowMs: number
+): Promise<RateLimitResult> {
+  const client = getRedis();
+  if (!client) return inMemory(key, limit, windowMs);
+
+  const redisKey = `rl:${key}`;
+  try {
+    // Atomic: increment the counter; on first hit set the window expiry.
+    const results = await client
+      .multi()
+      .incr(redisKey)
+      .pttl(redisKey)
+      .exec();
+    if (!results) return inMemory(key, limit, windowMs);
+
+    const count = Number(results[0]?.[1] ?? 0);
+    let ttl = Number(results[1]?.[1] ?? -1);
+    if (ttl < 0) {
+      await client.pexpire(redisKey, windowMs);
+      ttl = windowMs;
+    }
+    if (count > limit) {
+      return {
+        ok: false,
+        retryAfter: Math.max(1, Math.ceil(ttl / 1000)),
+        remaining: 0,
+      };
+    }
+    return { ok: true, retryAfter: 0, remaining: Math.max(0, limit - count) };
+  } catch (err) {
+    logger.warn("ratelimit.redis.fail_open", {
+      message: (err as Error)?.message,
+    });
+    // Fail open rather than block legitimate traffic on a cache outage.
+    return { ok: true, retryAfter: 0, remaining: limit };
+  }
 }
 
 /** Derives a best-effort client identifier from proxy headers. */

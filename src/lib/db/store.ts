@@ -3,6 +3,9 @@ import type {
   Conversation,
   Message,
   MessageRole,
+  Report,
+  ReportStatus,
+  ReportTargetType,
   User,
 } from "../types";
 
@@ -40,6 +43,15 @@ export interface ListCharactersOpts {
   search?: string;
   creatorId?: string;
   limit?: number;
+  offset?: number;
+}
+
+export interface ReportInput {
+  targetType: ReportTargetType;
+  targetId: string;
+  reporterId: string;
+  reason: string;
+  details: string;
 }
 
 export interface UserInput {
@@ -95,6 +107,24 @@ export interface DataStore {
     tokenHash: string
   ): Promise<{ userId: string } | null>;
   deletePasswordReset(tokenHash: string): Promise<void>;
+
+  // Email verification
+  markEmailVerified(userId: string): Promise<void>;
+  createEmailVerification(
+    userId: string,
+    tokenHash: string,
+    ttlMs: number
+  ): Promise<void>;
+  getValidEmailVerification(
+    tokenHash: string
+  ): Promise<{ userId: string } | null>;
+  deleteEmailVerification(tokenHash: string): Promise<void>;
+
+  // Moderation reports
+  createReport(input: ReportInput): Promise<Report>;
+  listReports(status: ReportStatus | "all", limit: number): Promise<Report[]>;
+  updateReportStatus(id: string, status: ReportStatus): Promise<boolean>;
+  countOpenReports(): Promise<number>;
 
   // Characters
   createCharacter(input: CharacterInput): Promise<Character>;

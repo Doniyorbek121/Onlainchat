@@ -4,6 +4,21 @@ export interface User {
   email: string;
   displayName: string;
   role: "user" | "admin";
+  emailVerified: boolean;
+  createdAt: number;
+}
+
+export type ReportTargetType = "character" | "message" | "user";
+export type ReportStatus = "open" | "resolved" | "dismissed";
+
+export interface Report {
+  id: string;
+  targetType: ReportTargetType;
+  targetId: string;
+  reporterId: string;
+  reason: string;
+  details: string;
+  status: ReportStatus;
   createdAt: number;
 }
 

@@ -16,7 +16,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const rl = rateLimit(clientKey(req, "favorite"), 60, 60_000);
+  const rl = await rateLimit(clientKey(req, "favorite"), 60, 60_000);
   if (!rl.ok) {
     return NextResponse.json(
       { error: "Too many requests." },

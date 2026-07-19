@@ -43,16 +43,33 @@ Built as a complete, self-contained full-stack app inspired by projects like
 - 🗂️ **My characters & My chats** — manage everything you created; keep multiple
   separate conversations per character, start a fresh chat any time, and delete
   chats you no longer want.
+- 🛡️ **Trust & safety** — a baseline content-safety filter (blocks the
+  sexualisation of minors, extensible via `MODERATION_BLOCKLIST`) screens every
+  character before it's stored, a **report/flag** control is available across the
+  app, and a first-visit **age gate + consent** confirms users are 18+ and accept
+  the Terms.
 - 🛡️ **Admin panel** — a role-gated `/admin` dashboard (bootstrapped via
   `ADMIN_EMAILS` or a user's `role`) with live totals (users, characters,
-  conversations, messages) and moderation: delete any character, or delete a
-  user and cascade all their data.
+  conversations, messages), a **moderation queue** for reports (resolve / dismiss
+  / delete the reported content), and delete-any-character / delete-user tools.
+- ⚖️ **Legal & GDPR** — Terms of Service and Privacy Policy pages, and
+  self-service **data export** (JSON) and **account deletion** (cascades all
+  your data) from account settings.
+- ✉️ **Email verification** — a verification link is emailed on sign-up
+  (single-use, 24-hour, hashed token); optionally require it before character
+  creation via `REQUIRE_EMAIL_VERIFICATION`.
 - 🔏 **Hashed sessions** — only a SHA-256 of each session token is stored, so a
   database leak can't be replayed as a live login. Password-reset tokens are
   hashed and single-use the same way.
 - 🩺 **Health probe** — `GET /api/health` checks database connectivity for load
   balancers / Kubernetes readiness & liveness, and bounded chat context (last 40
   messages sent to the model) keeps prompt cost flat as histories grow.
+- 📈 **Production-ready ops** — optional **Redis** rate limiting (shared across
+  replicas), **Sentry** error tracking + structured JSON logs, **S3/R2** avatar
+  storage, cursor-style **pagination** on discovery, and cookieless **Plausible**
+  analytics — all off by default and enabled purely through env vars.
+- ♿ **Accessibility** — skip-to-content link, visible keyboard focus, ARIA on
+  menus/dialogs/tabs, labelled controls, and reduced-motion support.
 - 🛡️ **Rate limiting** — login, registration, chat and character creation are
   throttled per client to resist brute-force and spam.
 - 🧷 **CSRF protection** — a double-submit token (`x-csrf-token` header vs.

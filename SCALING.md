@@ -31,11 +31,11 @@ a load balancer.
 
 These require infrastructure that can't live inside a single app process:
 
-1. **Shared rate limiting (required for multi-instance).**
-   `src/lib/rateLimit.ts` is an in-memory fixed window — it protects **per
-   instance**, not globally. Back it with **Redis** (or Upstash/Cloudflare
-   rate limiting at the edge) so limits are enforced across all replicas. The
-   `rateLimit()` signature is small and swappable.
+1. **Shared rate limiting (required for multi-instance).** ✅ *Built in.*
+   `src/lib/rateLimit.ts` uses an in-memory fixed window by default and
+   automatically switches to **Redis** when `REDIS_URL` is set, so limits are
+   enforced across all replicas. It fails open on a Redis outage so a cache
+   blip can't take the app down.
 
 2. **Managed Postgres with connection pooling & read replicas.**
    Put **PgBouncer** (transaction pooling) in front of Postgres so thousands of
@@ -47,17 +47,20 @@ These require infrastructure that can't live inside a single app process:
    `force-dynamic` where correctness needs it; relax to ISR/cache where it's
    safe.
 
-4. **Object storage for avatars.** Avatars are currently small inlined data
-   URLs (fine to start). At scale, upload to **S3/R2** and store a URL instead,
-   to keep rows small and let the CDN serve images.
+4. **Object storage for avatars.** ✅ *Built in.* Avatars are small inlined data
+   URLs by default (fine to start). Set the `S3_*` env vars and
+   `src/lib/storage.ts` uploads them to **S3/R2** and stores a URL instead,
+   keeping rows small and letting a CDN serve images.
 
 5. **Denormalised counters.** `favorites` count is computed with a subquery per
    row. For very hot lists, maintain a counter column (or a materialised view)
    updated on favorite/unfavorite.
 
-6. **Background jobs & observability.** Move email sending and cleanup to a
-   queue; add metrics/tracing (OpenTelemetry), structured logs, and alerting on
-   the health probe and DB pool saturation.
+6. **Observability.** ✅ *Built in.* Structured JSON logging (`src/lib/logger.ts`)
+   and optional **Sentry** error tracking (set `SENTRY_DSN` /
+   `NEXT_PUBLIC_SENTRY_DSN`) are wired up. Still add: background job queue for
+   email/cleanup, request tracing, and alerting on the health probe and DB pool
+   saturation.
 
 7. **Autoscaling & limits.** Horizontal Pod Autoscaler (or your platform's
    equivalent) keyed on CPU / request latency; set sane per-request timeouts and

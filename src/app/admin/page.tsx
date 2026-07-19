@@ -3,14 +3,17 @@ import { redirect } from "next/navigation";
 import TopBar from "@/components/TopBar";
 import Avatar from "@/components/Avatar";
 import AdminDeleteButton from "@/components/AdminDeleteButton";
+import AdminReportActions from "@/components/AdminReportActions";
 import { getAdminUser } from "@/lib/auth";
 import {
   countUsers,
   countCharacters,
   countConversations,
   countMessages,
+  countOpenReports,
   listRecentUsers,
   listRecentCharacters,
+  listReports,
 } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -23,15 +26,25 @@ export default async function AdminPage() {
   const admin = await getAdminUser();
   if (!admin) redirect("/");
 
-  const [users, characters, conversations, messages, recentUsers, recentChars] =
-    await Promise.all([
-      countUsers(),
-      countCharacters(),
-      countConversations(),
-      countMessages(),
-      listRecentUsers(20),
-      listRecentCharacters(20),
-    ]);
+  const [
+    users,
+    characters,
+    conversations,
+    messages,
+    openReports,
+    recentUsers,
+    recentChars,
+    reports,
+  ] = await Promise.all([
+    countUsers(),
+    countCharacters(),
+    countConversations(),
+    countMessages(),
+    countOpenReports(),
+    listRecentUsers(20),
+    listRecentCharacters(20),
+    listReports("open", 50),
+  ]);
 
   const stats = [
     { label: "Users", value: users },
@@ -43,7 +56,7 @@ export default async function AdminPage() {
   return (
     <div className="min-h-screen">
       <TopBar />
-      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+      <main id="main" className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         <div className="mb-6 flex items-center gap-2">
           <h1 className="text-2xl font-bold">Admin</h1>
           <span className="rounded-full bg-brand/15 px-2.5 py-0.5 text-xs font-semibold text-brand-soft">
@@ -60,6 +73,60 @@ export default async function AdminPage() {
             </div>
           ))}
         </div>
+
+        {/* Open reports */}
+        <section className="mb-8">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted">
+            Moderation queue
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs ${
+                openReports > 0
+                  ? "bg-red-500/15 text-red-300"
+                  : "bg-bg-hover text-muted"
+              }`}
+            >
+              {fmt(openReports)} open
+            </span>
+          </h2>
+          {reports.length === 0 ? (
+            <div className="card p-6 text-center text-sm text-muted">
+              Nothing to review. 🎉
+            </div>
+          ) : (
+            <div className="card divide-y divide-line">
+              {reports.map((r) => (
+                <div key={r.id} className="flex items-start gap-3 p-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-white">
+                      <span className="rounded bg-bg-hover px-1.5 py-0.5 text-xs uppercase text-muted">
+                        {r.targetType}
+                      </span>{" "}
+                      {r.targetType === "character" ? (
+                        <Link
+                          href={`/character/${r.targetId}`}
+                          className="text-brand-soft hover:underline"
+                        >
+                          {r.targetId}
+                        </Link>
+                      ) : (
+                        <span className="text-muted">{r.targetId}</span>
+                      )}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted">
+                      Reason: <span className="text-white/80">{r.reason}</span>
+                      {r.details && ` · ${r.details}`}
+                    </p>
+                  </div>
+                  <AdminReportActions
+                    id={r.id}
+                    targetType={r.targetType}
+                    targetId={r.targetId}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
 
         {/* Recent users */}
         <section className="mb-8">

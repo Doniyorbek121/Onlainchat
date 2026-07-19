@@ -36,7 +36,7 @@ export default async function LibraryPage() {
   return (
     <div className="min-h-screen">
       <TopBar />
-      <main className="mx-auto max-w-3xl px-4 py-8">
+      <main id="main" className="mx-auto max-w-3xl px-4 py-8">
         <h1 className="mb-6 text-2xl font-bold">My chats</h1>
         <LibraryList items={items} />
       </main>

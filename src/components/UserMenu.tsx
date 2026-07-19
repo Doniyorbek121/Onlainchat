@@ -34,6 +34,9 @@ export default function UserMenu({
       <button
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-2 rounded-xl border border-line bg-bg-card px-2.5 py-1.5 text-sm font-medium hover:bg-bg-hover"
+        aria-label="Account menu"
+        aria-haspopup="menu"
+        aria-expanded={open}
       >
         <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-brand to-accent text-xs font-bold text-white">
           {initial}

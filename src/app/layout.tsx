@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { getServerI18n } from "@/lib/i18n/server";
 import { I18nProvider } from "@/components/I18nProvider";
+import ConsentGate from "@/components/ConsentGate";
+import Analytics from "@/components/Analytics";
 
 export const metadata: Metadata = {
   title: "Character AI — Chat with AI characters",
@@ -25,9 +27,14 @@ export default async function RootLayout({
   return (
     <html lang={locale} dir={dir}>
       <body className="font-sans antialiased">
+        <a href="#main" className="skip-link">
+          Skip to content
+        </a>
         <I18nProvider dict={dict} locale={locale}>
           {children}
+          <ConsentGate />
         </I18nProvider>
+        <Analytics />
       </body>
     </html>
   );

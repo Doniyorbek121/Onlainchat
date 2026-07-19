@@ -5,6 +5,7 @@ import TopBar from "@/components/TopBar";
 import CharacterOwnerActions from "@/components/CharacterOwnerActions";
 import FavoriteButton from "@/components/FavoriteButton";
 import ShareButton from "@/components/ShareButton";
+import ReportButton from "@/components/ReportButton";
 import { getCharacter, isFavorited, getUserById } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { getServerI18n } from "@/lib/i18n/server";
@@ -33,7 +34,7 @@ export default async function CharacterDetailPage({
   return (
     <div className="min-h-screen">
       <TopBar />
-      <main className="mx-auto max-w-3xl px-4 py-10">
+      <main id="main" className="mx-auto max-w-3xl px-4 py-10">
         <div className="card overflow-hidden">
           <div
             className="h-28"
@@ -97,11 +98,15 @@ export default async function CharacterDetailPage({
               )}
             </div>
 
-            {isOwner && (
+            {isOwner ? (
               <CharacterOwnerActions
                 characterId={character.id}
                 characterName={character.name}
               />
+            ) : (
+              <div className="mt-1">
+                <ReportButton targetType="character" targetId={character.id} />
+              </div>
             )}
           </div>
         </div>
