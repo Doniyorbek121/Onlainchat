@@ -11,6 +11,7 @@ export interface LibraryItem {
   characterName: string;
   avatarEmoji: string;
   avatarColor: string;
+  avatarImage: string;
   preview: string;
   updatedAt: number;
 }
@@ -65,7 +66,12 @@ export default function LibraryList({ items }: { items: LibraryItem[] }) {
             href={`/chat/${it.characterId}?c=${it.conversationId}`}
             className="flex min-w-0 flex-1 items-center gap-3"
           >
-            <Avatar emoji={it.avatarEmoji} color={it.avatarColor} size={48} />
+            <Avatar
+              emoji={it.avatarEmoji}
+              color={it.avatarColor}
+              imageUrl={it.avatarImage}
+              size={48}
+            />
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-2">
                 <p className="truncate font-semibold">{it.characterName}</p>

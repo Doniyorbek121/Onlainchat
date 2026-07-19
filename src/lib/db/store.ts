@@ -14,6 +14,7 @@ export interface CharacterInput {
   persona: string;
   avatarEmoji: string;
   avatarColor: string;
+  avatarImage?: string; // data URL; defaults to "" (emoji avatar)
   category: string;
   visibility: "public" | "private";
   creatorId: string;
@@ -29,6 +30,7 @@ export type CharacterUpdate = Pick<
   | "persona"
   | "avatarEmoji"
   | "avatarColor"
+  | "avatarImage"
   | "category"
   | "visibility"
 >;

@@ -160,6 +160,7 @@ export default function ChatRoom({
         <Avatar
           emoji={character.avatarEmoji}
           color={character.avatarColor}
+          imageUrl={character.avatarImage}
           size={40}
         />
         <div className="min-w-0 flex-1">
@@ -257,6 +258,7 @@ function Bubble({
         <Avatar
           emoji={character.avatarEmoji}
           color={character.avatarColor}
+          imageUrl={character.avatarImage}
           size={34}
           className="mt-0.5"
         />
@@ -288,6 +290,7 @@ function IntroCard({ character }: { character: Character }) {
       <Avatar
         emoji={character.avatarEmoji}
         color={character.avatarColor}
+        imageUrl={character.avatarImage}
         size={72}
       />
       <h2 className="text-lg font-bold">{character.name}</h2>

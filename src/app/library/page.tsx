@@ -25,6 +25,7 @@ export default async function LibraryPage() {
       characterName: character.name,
       avatarEmoji: character.avatarEmoji,
       avatarColor: character.avatarColor,
+      avatarImage: character.avatarImage,
       preview: last
         ? `${last.role === "user" ? "You: " : ""}${last.content}`
         : "",

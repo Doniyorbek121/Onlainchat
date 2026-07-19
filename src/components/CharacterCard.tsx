@@ -18,6 +18,7 @@ export default function CharacterCard({ character }: { character: Character }) {
         <Avatar
           emoji={character.avatarEmoji}
           color={character.avatarColor}
+          imageUrl={character.avatarImage}
           size={52}
         />
         <div className="min-w-0 flex-1">

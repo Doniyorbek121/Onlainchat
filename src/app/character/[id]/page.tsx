@@ -38,6 +38,7 @@ export default async function CharacterDetailPage({
             <Avatar
               emoji={character.avatarEmoji}
               color={character.avatarColor}
+              imageUrl={character.avatarImage}
               size={96}
               className="ring-4 ring-bg-card"
             />

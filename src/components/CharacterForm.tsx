@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Avatar from "@/components/Avatar";
@@ -37,12 +37,36 @@ export default function CharacterForm({
   const [avatarColor, setAvatarColor] = useState(
     character?.avatarColor ?? AVATAR_COLORS[0]
   );
+  const [avatarImage, setAvatarImage] = useState(character?.avatarImage ?? "");
+  const [imageError, setImageError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [visibility, setVisibility] = useState<"public" | "private">(
     character?.visibility ?? "public"
   );
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function onPickImage(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file
+    if (!file) return;
+    setImageError(null);
+    if (!file.type.startsWith("image/")) {
+      setImageError("Please choose an image file.");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setImageError("Image is too large (max 8MB).");
+      return;
+    }
+    try {
+      const dataUrl = await resizeToDataUrl(file, 256);
+      setAvatarImage(dataUrl);
+    } catch {
+      setImageError("Couldn't process that image.");
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -67,6 +91,7 @@ export default function CharacterForm({
             category,
             avatarEmoji,
             avatarColor,
+            avatarImage,
             visibility,
             creatorName,
           }),
@@ -215,7 +240,12 @@ export default function CharacterForm({
           <aside className="flex flex-col gap-5">
             <div className="card sticky top-24 flex flex-col gap-5 p-5">
               <div className="flex flex-col items-center gap-3 rounded-xl bg-bg-soft p-5">
-                <Avatar emoji={avatarEmoji} color={avatarColor} size={80} />
+                <Avatar
+                  emoji={avatarEmoji}
+                  color={avatarColor}
+                  imageUrl={avatarImage}
+                  size={80}
+                />
                 <div className="text-center">
                   <p className="font-bold">{name || "Character name"}</p>
                   <p className="text-xs text-muted">
@@ -225,7 +255,44 @@ export default function CharacterForm({
               </div>
 
               <div>
-                <p className="label">Avatar</p>
+                <p className="label">Photo</p>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={onPickImage}
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    className="btn-ghost flex-1 !py-2 text-xs"
+                  >
+                    {avatarImage ? "Change photo" : "📷 Upload photo"}
+                  </button>
+                  {avatarImage && (
+                    <button
+                      type="button"
+                      onClick={() => setAvatarImage("")}
+                      className="btn-ghost !py-2 text-xs"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                {imageError && (
+                  <p className="mt-1.5 text-xs text-red-300">{imageError}</p>
+                )}
+                {avatarImage && (
+                  <p className="mt-1.5 text-xs text-muted/70">
+                    A photo overrides the emoji avatar below.
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <p className="label">Emoji</p>
                 <div className="grid grid-cols-8 gap-1.5">
                   {AVATAR_EMOJIS.map((e) => (
                     <button
@@ -281,6 +348,33 @@ export default function CharacterForm({
       </main>
     </div>
   );
+}
+
+/** Draws the image centre-cropped into a `size`×`size` square and returns a
+ *  compressed JPEG data URL, keeping avatar payloads small enough to store. */
+function resizeToDataUrl(file: File, size: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return reject(new Error("no canvas"));
+      const scale = Math.max(size / img.width, size / img.height);
+      const w = img.width * scale;
+      const h = img.height * scale;
+      ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+      resolve(canvas.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("load error"));
+    };
+    img.src = url;
+  });
 }
 
 function Field({

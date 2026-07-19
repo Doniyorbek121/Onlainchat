@@ -21,9 +21,11 @@ Built as a complete, self-contained full-stack app inspired by projects like
 - 💬 **Real-time chat** — token-by-token streaming replies, persisted history,
   auto-resume of past conversations.
 - 🎨 **Character creator & editor** — name, tagline, description, greeting, full
-  personality/behaviour prompt, avatar (emoji + colour), category and visibility,
-  with a live preview. Owners can edit or delete their characters (deleting a
-  character cascades to its chats); ownership is enforced on every write.
+  personality/behaviour prompt, avatar (upload a **photo**, or pick an emoji +
+  colour), category and visibility, with a live preview. Uploaded photos are
+  cropped and compressed client-side to a small square and stored inline, so no
+  external file storage is needed. Owners can edit or delete their characters
+  (deleting a character cascades to its chats); ownership is enforced on every write.
 - 🔒 **Private characters** — private characters are hidden from discovery and
   reachable only by their creator; enforced on every page and API route.
 - 🗂️ **My characters & My chats** — manage everything you created; keep multiple

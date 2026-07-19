@@ -45,7 +45,12 @@ export default async function MyCharactersPage() {
                 className="card flex flex-col gap-3 p-4 transition-colors hover:border-brand/40"
               >
                 <div className="flex items-start gap-3">
-                  <Avatar emoji={c.avatarEmoji} color={c.avatarColor} size={52} />
+                  <Avatar
+                    emoji={c.avatarEmoji}
+                    color={c.avatarColor}
+                    imageUrl={c.avatarImage}
+                    size={52}
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <h3 className="truncate font-semibold">{c.name}</h3>

@@ -15,6 +15,7 @@ export interface Character {
   persona: string;
   avatarEmoji: string;
   avatarColor: string;
+  avatarImage: string; // data URL, or "" when using the emoji avatar
   category: string;
   visibility: "public" | "private";
   creatorId: string;

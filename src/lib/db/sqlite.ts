@@ -41,6 +41,7 @@ function mapCharacter(r: any): Character {
     persona: r.persona,
     avatarEmoji: r.avatar_emoji,
     avatarColor: r.avatar_color,
+    avatarImage: r.avatar_image ?? "",
     category: r.category,
     visibility: r.visibility,
     creatorId: r.creator_id,
@@ -97,7 +98,8 @@ export function createSqliteStore(): DataStore {
           id TEXT PRIMARY KEY, name TEXT NOT NULL, tagline TEXT NOT NULL DEFAULT '',
           description TEXT NOT NULL DEFAULT '', greeting TEXT NOT NULL DEFAULT '',
           persona TEXT NOT NULL DEFAULT '', avatar_emoji TEXT NOT NULL DEFAULT '🤖',
-          avatar_color TEXT NOT NULL DEFAULT '#7c5cff', category TEXT NOT NULL DEFAULT 'Assistant',
+          avatar_color TEXT NOT NULL DEFAULT '#7c5cff', avatar_image TEXT NOT NULL DEFAULT '',
+          category TEXT NOT NULL DEFAULT 'Assistant',
           visibility TEXT NOT NULL DEFAULT 'public', creator_id TEXT NOT NULL,
           creator_name TEXT NOT NULL DEFAULT 'Anonymous', interactions INTEGER NOT NULL DEFAULT 0,
           created_at INTEGER NOT NULL
@@ -116,6 +118,16 @@ export function createSqliteStore(): DataStore {
         CREATE INDEX IF NOT EXISTS idx_msg_conv ON messages(conversation_id, created_at ASC);
         CREATE INDEX IF NOT EXISTS idx_char_cat ON characters(category);
       `);
+      // Add columns introduced after initial release (existing DBs).
+      const cols = db
+        .prepare(`PRAGMA table_info(characters)`)
+        .all()
+        .map((c: any) => c.name);
+      if (!cols.includes("avatar_image")) {
+        db.exec(
+          `ALTER TABLE characters ADD COLUMN avatar_image TEXT NOT NULL DEFAULT ''`
+        );
+      }
     },
 
     async createUser(input: UserInput) {
@@ -234,14 +246,20 @@ export function createSqliteStore(): DataStore {
     },
 
     async createCharacter(input: CharacterInput) {
-      const row = { id: genId(), ...input, interactions: 0, createdAt: Date.now() };
+      const row = {
+        id: genId(),
+        ...input,
+        avatarImage: input.avatarImage || "",
+        interactions: 0,
+        createdAt: Date.now(),
+      };
       db.prepare(
         `INSERT INTO characters
           (id, name, tagline, description, greeting, persona, avatar_emoji,
-           avatar_color, category, visibility, creator_id, creator_name, interactions, created_at)
+           avatar_color, avatar_image, category, visibility, creator_id, creator_name, interactions, created_at)
          VALUES
           (@id, @name, @tagline, @description, @greeting, @persona, @avatarEmoji,
-           @avatarColor, @category, @visibility, @creatorId, @creatorName, @interactions, @createdAt)`
+           @avatarColor, @avatarImage, @category, @visibility, @creatorId, @creatorName, @interactions, @createdAt)`
       ).run(row);
       return (await this.getCharacter(row.id))!;
     },
@@ -281,10 +299,11 @@ export function createSqliteStore(): DataStore {
           `UPDATE characters SET
              name = @name, tagline = @tagline, description = @description,
              greeting = @greeting, persona = @persona, avatar_emoji = @avatarEmoji,
-             avatar_color = @avatarColor, category = @category, visibility = @visibility
+             avatar_color = @avatarColor, avatar_image = @avatarImage,
+             category = @category, visibility = @visibility
            WHERE id = @id AND creator_id = @creatorId`
         )
-        .run({ ...update, id, creatorId });
+        .run({ ...update, avatarImage: update.avatarImage || "", id, creatorId });
       if (res.changes === 0) return null;
       return this.getCharacter(id);
     },

@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { createCharacter, listCharacters } from "@/lib/db";
 import { CATEGORIES, AVATAR_COLORS, AVATAR_EMOJIS } from "@/lib/types";
 import { rateLimit, clientKey } from "@/lib/rateLimit";
+import { validAvatarImage } from "@/lib/validate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -52,11 +53,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const category = CATEGORIES.includes(
-    (body.category as (typeof CATEGORIES)[number]) ?? "Assistant"
-  )
-    ? (body.category as string)
-    : "Assistant";
+  const category =
+    typeof body.category === "string" &&
+    CATEGORIES.includes(body.category as (typeof CATEGORIES)[number])
+      ? body.category
+      : "Assistant";
 
   const avatarEmoji =
     str(body.avatarEmoji, 8) || AVATAR_EMOJIS[0];
@@ -72,6 +73,7 @@ export async function POST(req: NextRequest) {
     persona: str(body.persona, 2000),
     avatarEmoji,
     avatarColor,
+    avatarImage: validAvatarImage(body.avatarImage),
     category,
     visibility: body.visibility === "private" ? "private" : "public",
     creatorId: user.id,

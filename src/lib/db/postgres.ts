@@ -40,6 +40,7 @@ function mapCharacter(r: any): Character {
     persona: r.persona,
     avatarEmoji: r.avatar_emoji,
     avatarColor: r.avatar_color,
+    avatarImage: r.avatar_image ?? "",
     category: r.category,
     visibility: r.visibility,
     creatorId: r.creator_id,
@@ -102,7 +103,8 @@ export function createPostgresStore(connectionString: string): DataStore {
           id TEXT PRIMARY KEY, name TEXT NOT NULL, tagline TEXT NOT NULL DEFAULT '',
           description TEXT NOT NULL DEFAULT '', greeting TEXT NOT NULL DEFAULT '',
           persona TEXT NOT NULL DEFAULT '', avatar_emoji TEXT NOT NULL DEFAULT '🤖',
-          avatar_color TEXT NOT NULL DEFAULT '#7c5cff', category TEXT NOT NULL DEFAULT 'Assistant',
+          avatar_color TEXT NOT NULL DEFAULT '#7c5cff', avatar_image TEXT NOT NULL DEFAULT '',
+          category TEXT NOT NULL DEFAULT 'Assistant',
           visibility TEXT NOT NULL DEFAULT 'public', creator_id TEXT NOT NULL,
           creator_name TEXT NOT NULL DEFAULT 'Anonymous', interactions INTEGER NOT NULL DEFAULT 0,
           created_at BIGINT NOT NULL
@@ -121,6 +123,10 @@ export function createPostgresStore(connectionString: string): DataStore {
         CREATE INDEX IF NOT EXISTS idx_msg_conv ON messages(conversation_id, created_at ASC);
         CREATE INDEX IF NOT EXISTS idx_char_cat ON characters(category);
       `);
+      // Add columns introduced after initial release (existing DBs).
+      await q(
+        `ALTER TABLE characters ADD COLUMN IF NOT EXISTS avatar_image TEXT NOT NULL DEFAULT ''`
+      );
     },
 
     async createUser(input: UserInput) {
@@ -253,8 +259,8 @@ export function createPostgresStore(connectionString: string): DataStore {
       const r = await q(
         `INSERT INTO characters
           (id, name, tagline, description, greeting, persona, avatar_emoji,
-           avatar_color, category, visibility, creator_id, creator_name, interactions, created_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,0,$13) RETURNING *`,
+           avatar_color, avatar_image, category, visibility, creator_id, creator_name, interactions, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,0,$14) RETURNING *`,
         [
           genId(),
           input.name,
@@ -264,6 +270,7 @@ export function createPostgresStore(connectionString: string): DataStore {
           input.persona,
           input.avatarEmoji,
           input.avatarColor,
+          input.avatarImage || "",
           input.category,
           input.visibility,
           input.creatorId,
@@ -307,8 +314,8 @@ export function createPostgresStore(connectionString: string): DataStore {
       const r = await q(
         `UPDATE characters SET
            name=$1, tagline=$2, description=$3, greeting=$4, persona=$5,
-           avatar_emoji=$6, avatar_color=$7, category=$8, visibility=$9
-         WHERE id=$10 AND creator_id=$11 RETURNING *`,
+           avatar_emoji=$6, avatar_color=$7, avatar_image=$8, category=$9, visibility=$10
+         WHERE id=$11 AND creator_id=$12 RETURNING *`,
         [
           update.name,
           update.tagline,
@@ -317,6 +324,7 @@ export function createPostgresStore(connectionString: string): DataStore {
           update.persona,
           update.avatarEmoji,
           update.avatarColor,
+          update.avatarImage || "",
           update.category,
           update.visibility,
           id,
