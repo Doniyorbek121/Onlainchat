@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/http";
+import { useT } from "./I18nProvider";
 
 export default function FavoriteButton({
   characterId,
@@ -16,6 +17,7 @@ export default function FavoriteButton({
   isAuthed: boolean;
 }) {
   const router = useRouter();
+  const t = useT();
   const [favorited, setFavorited] = useState(initialFavorited);
   const [count, setCount] = useState(initialCount);
   const [busy, setBusy] = useState(false);
@@ -60,7 +62,7 @@ export default function FavoriteButton({
       aria-pressed={favorited}
     >
       <span className="text-base leading-none">{favorited ? "♥" : "♡"}</span>
-      {favorited ? "Saved" : "Save"}
+      {favorited ? t("common.saved") : t("common.save")}
       {count > 0 && (
         <span className="text-xs text-muted">· {count.toLocaleString()}</span>
       )}

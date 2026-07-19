@@ -7,6 +7,7 @@ import FavoriteButton from "@/components/FavoriteButton";
 import ShareButton from "@/components/ShareButton";
 import { getCharacter, isFavorited, getUserById } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { getServerI18n } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ export default async function CharacterDetailPage({
 
   const favorited = user ? await isFavorited(user.id, character.id) : false;
   const creator = await getUserById(character.creatorId);
+  const { t } = await getServerI18n();
 
   return (
     <div className="min-h-screen">
@@ -82,7 +84,7 @@ export default async function CharacterDetailPage({
 
             <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
               <Link href={`/chat/${character.id}`} className="btn-primary px-8">
-                💬 Start chatting
+                💬 {t("chat.startChatting")}
               </Link>
               <FavoriteButton
                 characterId={character.id}
@@ -115,7 +117,7 @@ export default async function CharacterDetailPage({
 
         <div className="mt-6 text-center">
           <Link href="/" className="text-sm text-muted hover:text-white">
-            ← Back to discover
+            ← {t("common.back")}
           </Link>
         </div>
       </main>

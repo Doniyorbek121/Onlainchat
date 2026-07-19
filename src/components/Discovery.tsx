@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import CharacterCard from "./CharacterCard";
+import { useT } from "./I18nProvider";
 import type { Character } from "@/lib/types";
 
 const FILTERS = [
@@ -23,6 +24,7 @@ export default function Discovery({
 }: {
   characters: Character[];
 }) {
+  const t = useT();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("All");
 
@@ -53,7 +55,7 @@ export default function Discovery({
         </span>
         <input
           className="input pl-10"
-          placeholder="Search characters…"
+          placeholder={t("home.search")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -63,7 +65,7 @@ export default function Discovery({
       {query === "" && filter === "All" && featured.length > 0 && (
         <section>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
-            Trending now
+            {t("home.trending")}
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {featured.map((c) => (
@@ -93,7 +95,7 @@ export default function Discovery({
       {/* Grid */}
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
-          {filter === "All" ? "Explore characters" : filter}
+          {filter === "All" ? t("home.exploreHeading") : filter}
           <span className="ml-2 text-muted/60">{filtered.length}</span>
         </h2>
         {filtered.length === 0 ? (

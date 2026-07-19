@@ -4,10 +4,12 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { apiFetch } from "@/lib/http";
+import { useT } from "./I18nProvider";
 
 export default function AuthForm({ mode }: { mode: "login" | "register" }) {
   const router = useRouter();
   const params = useSearchParams();
+  const t = useT();
   const next = params.get("next") || "/";
 
   const isLogin = mode === "login";
@@ -58,18 +60,16 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
 
         <div className="card p-7">
           <h1 className="text-2xl font-bold">
-            {isLogin ? "Welcome back" : "Create your account"}
+            {isLogin ? t("auth.welcomeBack") : t("auth.createAccount")}
           </h1>
           <p className="mt-1 text-sm text-muted">
-            {isLogin
-              ? "Sign in to keep chatting with your characters."
-              : "Join to create characters and save your chats."}
+            {isLogin ? t("auth.signInSub") : t("auth.signUpSub")}
           </p>
 
           <form onSubmit={submit} className="mt-6 flex flex-col gap-4">
             {isLogin ? (
               <div>
-                <label className="label">Email or username</label>
+                <label className="label">{t("auth.emailOrUsername")}</label>
                 <input
                   className="input"
                   autoComplete="username"
@@ -81,7 +81,7 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
             ) : (
               <>
                 <div>
-                  <label className="label">Username</label>
+                  <label className="label">{t("auth.username")}</label>
                   <input
                     className="input"
                     autoComplete="username"
@@ -91,7 +91,7 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
                   />
                 </div>
                 <div>
-                  <label className="label">Display name</label>
+                  <label className="label">{t("auth.displayName")}</label>
                   <input
                     className="input"
                     value={displayName}
@@ -100,7 +100,7 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
                   />
                 </div>
                 <div>
-                  <label className="label">Email</label>
+                  <label className="label">{t("auth.email")}</label>
                   <input
                     className="input"
                     type="email"
@@ -115,13 +115,13 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
 
             <div>
               <div className="flex items-center justify-between">
-                <label className="label">Password</label>
+                <label className="label">{t("auth.password")}</label>
                 {isLogin && (
                   <Link
                     href="/forgot"
                     className="mb-1.5 text-xs font-medium text-brand-soft hover:underline"
                   >
-                    Forgot?
+                    {t("auth.forgot")}
                   </Link>
                 )}
               </div>
@@ -143,10 +143,10 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
 
             <button type="submit" disabled={loading} className="btn-primary mt-1">
               {loading
-                ? "Please wait…"
+                ? "…"
                 : isLogin
-                ? "Sign in"
-                : "Create account"}
+                ? t("nav.signIn")
+                : t("auth.createAccount")}
             </button>
           </form>
 

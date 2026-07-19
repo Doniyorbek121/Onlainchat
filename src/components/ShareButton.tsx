@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useT } from "./I18nProvider";
 
 export default function ShareButton({ path }: { path: string }) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
 
   async function share() {
@@ -27,7 +29,7 @@ export default function ShareButton({ path }: { path: string }) {
       className="btn px-5 border border-line bg-bg-card text-white hover:bg-bg-hover"
     >
       <span className="text-base leading-none">🔗</span>
-      {copied ? "Copied!" : "Share"}
+      {copied ? t("common.copied") : t("common.share")}
     </button>
   );
 }

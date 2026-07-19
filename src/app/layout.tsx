@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { getServerI18n } from "@/lib/i18n/server";
+import { I18nProvider } from "@/components/I18nProvider";
 
 export const metadata: Metadata = {
   title: "Character AI — Chat with AI characters",
@@ -13,14 +15,20 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { locale, dir, dict } = await getServerI18n();
+
   return (
-    <html lang="en">
-      <body className="font-sans antialiased">{children}</body>
+    <html lang={locale} dir={dir}>
+      <body className="font-sans antialiased">
+        <I18nProvider dict={dict} locale={locale}>
+          {children}
+        </I18nProvider>
+      </body>
     </html>
   );
 }

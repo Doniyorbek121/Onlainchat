@@ -4,10 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiFetch } from "@/lib/http";
+import { useT } from "./I18nProvider";
 import type { User } from "@/lib/types";
 
 export default function UserMenu({ user }: { user: User }) {
   const router = useRouter();
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -56,35 +58,35 @@ export default function UserMenu({ user }: { user: User }) {
               onClick={() => setOpen(false)}
               className="block px-4 py-2.5 text-sm hover:bg-bg-hover"
             >
-              View profile
+              {t("nav.viewProfile")}
             </Link>
             <Link
               href="/mine"
               onClick={() => setOpen(false)}
               className="block px-4 py-2.5 text-sm hover:bg-bg-hover"
             >
-              My characters
+              {t("nav.myCharacters")}
             </Link>
             <Link
               href="/library"
               onClick={() => setOpen(false)}
               className="block px-4 py-2.5 text-sm hover:bg-bg-hover"
             >
-              My chats
+              {t("nav.myChats")}
             </Link>
             <Link
               href="/create"
               onClick={() => setOpen(false)}
               className="block px-4 py-2.5 text-sm hover:bg-bg-hover"
             >
-              Create character
+              {t("nav.create")}
             </Link>
             <button
               onClick={logout}
               disabled={loading}
               className="block w-full px-4 py-2.5 text-left text-sm text-red-300 hover:bg-bg-hover"
             >
-              {loading ? "Signing out…" : "Sign out"}
+              {loading ? "…" : t("nav.signOut")}
             </button>
           </div>
         </>

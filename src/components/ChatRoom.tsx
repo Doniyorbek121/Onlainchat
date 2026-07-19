@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Avatar from "./Avatar";
 import { apiFetch } from "@/lib/http";
+import { useT } from "./I18nProvider";
 import type { Character, Message } from "@/lib/types";
 
 interface ChatMessage {
@@ -33,6 +34,7 @@ export default function ChatRoom({
       ? [{ id: "greeting", role: "assistant", content: character.greeting }]
       : [];
 
+  const t = useT();
   const [messages, setMessages] = useState<ChatMessage[]>(seed);
   const [conversationId, setConversationId] = useState<string | null>(
     initialConversationId
@@ -217,13 +219,13 @@ export default function ChatRoom({
           className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-bg-hover hover:text-white"
           title="Start a new chat"
         >
-          ＋ New
+          ＋ {t("chat.newChat")}
         </a>
         <Link
           href={`/character/${character.id}`}
           className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-bg-hover hover:text-white"
         >
-          Details
+          {t("chat.details")}
         </Link>
       </header>
 
@@ -240,7 +242,7 @@ export default function ChatRoom({
                 onClick={regenerate}
                 className="flex items-center gap-1.5 rounded-full border border-line bg-bg-card px-4 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-bg-hover hover:text-white"
               >
-                ↻ Regenerate
+                ↻ {t("chat.regenerate")}
               </button>
             </div>
           )}
@@ -264,7 +266,7 @@ export default function ChatRoom({
               autoGrow();
             }}
             onKeyDown={onKeyDown}
-            placeholder={`Message ${character.name}…`}
+            placeholder={t("chat.placeholder", { name: character.name })}
             className="input max-h-40 resize-none py-3"
           />
           {sending ? (
@@ -288,8 +290,7 @@ export default function ChatRoom({
           )}
         </div>
         <p className="mx-auto mt-2 max-w-3xl text-center text-[11px] text-muted/70">
-          {character.name} is an AI character. Messages may be inaccurate — keep
-          it kind.
+          {t("chat.disclaimer", { name: character.name })}
         </p>
       </div>
     </div>

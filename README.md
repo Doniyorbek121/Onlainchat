@@ -17,6 +17,12 @@ Built as a complete, self-contained full-stack app inspired by projects like
   1-hour tokens; changing the password invalidates all existing sessions.
   Links are emailed via SMTP when configured, otherwise logged (and returned in
   dev) so self-hosters can use the flow with zero setup.
+- 🌐 **22 interface languages** — English, Uzbek, Russian, Spanish, French,
+  German, Portuguese, Italian, Turkish, Polish, Ukrainian, Dutch, Indonesian,
+  Vietnamese, Hindi, Bengali, Chinese, Japanese, Korean, Thai, Arabic and
+  Persian — with a language switcher, right-to-left layout for Arabic/Persian,
+  and English fallback. (The AI itself replies in whatever language you write in,
+  so conversations aren't limited to this list.)
 - 🧭 **Discovery** — browse trending characters, filter by category, and search.
 - 💬 **Real-time chat** — token-by-token streaming replies, persisted history,
   auto-resume of past conversations. **Stop** a reply mid-stream (the partial
@@ -160,6 +166,7 @@ src/
     session.ts                Auth-aware / anonymous cookie sessions
     rateLimit.ts / http.ts    Throttling / CSRF-aware fetch wrapper
     validate.ts               Shared input validation (avatar images)
+    i18n/                     22-language UI translations + locale helpers
     types.ts                  Shared types
   middleware.ts               CSRF (double-submit + same-origin) enforcement
 tests/                        Vitest suites (db + auth)
