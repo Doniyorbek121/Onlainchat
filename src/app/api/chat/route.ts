@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     return new Response("Message is too long.", { status: 400 });
   }
 
-  const character = getCharacter(body.characterId);
+  const character = await getCharacter(body.characterId);
   if (!character) {
     return new Response("Character not found", { status: 404 });
   }
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
   // otherwise start a fresh one (this is what enables multiple chats and
   // the "New chat" action).
   let conversation = body.conversationId
-    ? getConversation(body.conversationId)
+    ? await getConversation(body.conversationId)
     : null;
 
   if (
@@ -70,13 +70,17 @@ export async function POST(req: NextRequest) {
     conversation.userId !== userId ||
     conversation.characterId !== character.id
   ) {
-    conversation = createConversation(character.id, userId, message.slice(0, 60));
+    conversation = await createConversation(
+      character.id,
+      userId,
+      message.slice(0, 60)
+    );
   }
   const conversationId = conversation.id;
 
   // Persist the user's message, then load full history for context.
-  addMessage(conversationId, "user", message);
-  const history = listMessages(conversationId);
+  await addMessage(conversationId, "user", message);
+  const history = await listMessages(conversationId);
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -100,9 +104,9 @@ export async function POST(req: NextRequest) {
 
       const clean = full.trim();
       if (clean) {
-        addMessage(conversationId, "assistant", clean);
-        touchConversation(conversationId);
-        incrementInteractions(character.id);
+        await addMessage(conversationId, "assistant", clean);
+        await touchConversation(conversationId);
+        await incrementInteractions(character.id);
       }
       controller.enqueue(sse("done", { conversationId }));
       controller.close();

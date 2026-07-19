@@ -131,10 +131,14 @@ const SEED: Omit<CharacterInput, "creatorId" | "creatorName">[] = [
   },
 ];
 
+let seeding: Promise<void> | null = null;
+
 /** Ensures the database has starter characters. Runs once when the DB is empty. */
-export function ensureSeeded() {
-  if (countCharacters() > 0) return;
-  for (const c of SEED) {
-    createCharacter({ ...c, ...SYSTEM_CREATOR });
-  }
+export function ensureSeeded(): Promise<void> {
+  return (seeding ??= (async () => {
+    if ((await countCharacters()) > 0) return;
+    for (const c of SEED) {
+      await createCharacter({ ...c, ...SYSTEM_CREATOR });
+    }
+  })());
 }

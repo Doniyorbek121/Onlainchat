@@ -49,7 +49,7 @@ export type AuthResult =
   | { ok: true; user: User; token: string }
   | { ok: false; error: string };
 
-export function registerUser(input: RegisterInput): AuthResult {
+export async function registerUser(input: RegisterInput): Promise<AuthResult> {
   const username = input.username.trim();
   const email = input.email.trim().toLowerCase();
   const password = input.password;
@@ -66,26 +66,29 @@ export function registerUser(input: RegisterInput): AuthResult {
   if (password.length < 8) {
     return { ok: false, error: "Password must be at least 8 characters." };
   }
-  if (userExists(username, email)) {
+  if (await userExists(username, email)) {
     return { ok: false, error: "That username or email is already taken." };
   }
 
-  const user = createUser({
+  const user = await createUser({
     username,
     email,
     displayName: (input.displayName || username).trim().slice(0, 40),
     passwordHash: hashPassword(password),
   });
-  const token = createSession(user.id, SESSION_TTL_MS);
+  const token = await createSession(user.id, SESSION_TTL_MS);
   return { ok: true, user, token };
 }
 
-export function loginUser(login: string, password: string): AuthResult {
-  const record = getUserAuthByLogin(login.trim());
+export async function loginUser(
+  login: string,
+  password: string
+): Promise<AuthResult> {
+  const record = await getUserAuthByLogin(login.trim());
   if (!record || !verifyPassword(password, record.passwordHash)) {
     return { ok: false, error: "Incorrect email/username or password." };
   }
-  const token = createSession(record.user.id, SESSION_TTL_MS);
+  const token = await createSession(record.user.id, SESSION_TTL_MS);
   return { ok: true, user: record.user, token };
 }
 
@@ -107,7 +110,7 @@ export async function setSessionCookie(token: string) {
 export async function clearSessionCookie() {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
-  if (token) deleteSession(token);
+  if (token) await deleteSession(token);
   store.delete(SESSION_COOKIE);
 }
 

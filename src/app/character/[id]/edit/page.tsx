@@ -14,7 +14,7 @@ export default async function EditCharacterPage({
   const user = await getCurrentUser();
   if (!user) redirect(`/login?next=/character/${id}/edit`);
 
-  const character = getCharacter(id);
+  const character = await getCharacter(id);
   if (!character) notFound();
   if (character.creatorId !== user.id) redirect(`/character/${id}`);
 

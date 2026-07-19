@@ -11,13 +11,13 @@ export const dynamic = "force-dynamic";
 
 export default async function LibraryPage() {
   const userId = await peekUserId();
-  const conversations = userId ? listConversationsForUser(userId) : [];
+  const conversations = userId ? await listConversationsForUser(userId) : [];
 
   const items: LibraryItem[] = [];
   for (const conv of conversations) {
-    const character = getCharacter(conv.characterId);
+    const character = await getCharacter(conv.characterId);
     if (!character) continue;
-    const msgs = listMessages(conv.id);
+    const msgs = await listMessages(conv.id);
     const last = msgs[msgs.length - 1];
     items.push({
       conversationId: conv.id,

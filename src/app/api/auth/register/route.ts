@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const result = registerUser({
+  const result = await registerUser({
     username: String(body.username || ""),
     email: String(body.email || ""),
     password: String(body.password || ""),
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   // Migrate any anonymous characters/chats into the new account.
   const anonId = await peekAnonId();
   if (anonId) {
-    reassignOwnership(anonId, result.user.id);
+    await reassignOwnership(anonId, result.user.id);
     (await cookies()).delete("oc_uid");
   }
 

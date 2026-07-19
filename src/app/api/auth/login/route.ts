@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const result = loginUser(
+  const result = await loginUser(
     String(body.login || ""),
     String(body.password || "")
   );
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
 
   const anonId = await peekAnonId();
   if (anonId) {
-    reassignOwnership(anonId, result.user.id);
+    await reassignOwnership(anonId, result.user.id);
     (await cookies()).delete("oc_uid");
   }
 

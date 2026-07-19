@@ -11,7 +11,7 @@ export async function DELETE(
 ) {
   const { id } = await params;
   const userId = await getUserId();
-  const ok = deleteConversation(id, userId);
+  const ok = await deleteConversation(id, userId);
   if (!ok) {
     return NextResponse.json({ error: "Not found" }, { status: 403 });
   }

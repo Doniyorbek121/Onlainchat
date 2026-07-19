@@ -18,11 +18,11 @@ export default async function ChatPage({
   params: Promise<{ characterId: string }>;
   searchParams: Promise<{ c?: string; new?: string }>;
 }) {
-  ensureSeeded();
+  await ensureSeeded();
   const { characterId } = await params;
   const { c, new: isNew } = await searchParams;
 
-  const character = getCharacter(characterId);
+  const character = await getCharacter(characterId);
   if (!character) notFound();
 
   const userId = await peekUserId();
@@ -39,16 +39,16 @@ export default async function ChatPage({
   let conversation = null;
   if (!isNew) {
     if (c) {
-      const found = getConversation(c);
+      const found = await getConversation(c);
       if (found && found.userId === userId && found.characterId === character.id) {
         conversation = found;
       }
     } else if (userId) {
-      conversation = findConversation(character.id, userId);
+      conversation = await findConversation(character.id, userId);
     }
   }
 
-  const messages = conversation ? listMessages(conversation.id) : [];
+  const messages = conversation ? await listMessages(conversation.id) : [];
 
   return (
     <ChatRoom

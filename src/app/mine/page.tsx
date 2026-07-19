@@ -11,7 +11,7 @@ export default async function MyCharactersPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/mine");
 
-  const characters = listCharacters({ creatorId: user.id });
+  const characters = await listCharacters({ creatorId: user.id });
 
   return (
     <div className="min-h-screen">

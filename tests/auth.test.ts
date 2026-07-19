@@ -15,6 +15,7 @@ process.env.DATABASE_PATH = path.join(
   os.tmpdir(),
   `oc-auth-test-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
 );
+delete process.env.DATABASE_URL; // force the SQLite backend
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 let auth: any;
@@ -36,8 +37,8 @@ describe("password hashing", () => {
 });
 
 describe("registerUser validation", () => {
-  it("rejects short passwords", () => {
-    const r = auth.registerUser({
+  it("rejects short passwords", async () => {
+    const r = await auth.registerUser({
       username: "validname",
       email: "a@b.com",
       password: "short",
@@ -45,17 +46,17 @@ describe("registerUser validation", () => {
     expect(r.ok).toBe(false);
   });
 
-  it("rejects bad usernames and emails", () => {
+  it("rejects bad usernames and emails", async () => {
     expect(
-      auth.registerUser({ username: "a", email: "a@b.com", password: "longenough1" }).ok
+      (await auth.registerUser({ username: "a", email: "a@b.com", password: "longenough1" })).ok
     ).toBe(false);
     expect(
-      auth.registerUser({ username: "gooduser", email: "not-an-email", password: "longenough1" }).ok
+      (await auth.registerUser({ username: "gooduser", email: "not-an-email", password: "longenough1" })).ok
     ).toBe(false);
   });
 
-  it("registers a valid user and blocks duplicates", () => {
-    const ok = auth.registerUser({
+  it("registers a valid user and blocks duplicates", async () => {
+    const ok = await auth.registerUser({
       username: "charlie",
       email: "charlie@example.com",
       password: "supersecret1",
@@ -64,7 +65,7 @@ describe("registerUser validation", () => {
     expect(ok.ok).toBe(true);
     expect(ok.user.displayName).toBe("Charlie");
 
-    const dup = auth.registerUser({
+    const dup = await auth.registerUser({
       username: "charlie",
       email: "other@example.com",
       password: "supersecret1",
@@ -74,15 +75,15 @@ describe("registerUser validation", () => {
 });
 
 describe("loginUser", () => {
-  it("accepts correct credentials and rejects wrong ones", () => {
-    auth.registerUser({
+  it("accepts correct credentials and rejects wrong ones", async () => {
+    await auth.registerUser({
       username: "dave",
       email: "dave@example.com",
       password: "supersecret1",
     });
-    expect(auth.loginUser("dave", "supersecret1").ok).toBe(true);
-    expect(auth.loginUser("dave@example.com", "supersecret1").ok).toBe(true);
-    expect(auth.loginUser("dave", "nope").ok).toBe(false);
-    expect(auth.loginUser("ghost", "whatever").ok).toBe(false);
+    expect((await auth.loginUser("dave", "supersecret1")).ok).toBe(true);
+    expect((await auth.loginUser("dave@example.com", "supersecret1")).ok).toBe(true);
+    expect((await auth.loginUser("dave", "nope")).ok).toBe(false);
+    expect((await auth.loginUser("ghost", "whatever")).ok).toBe(false);
   });
 });

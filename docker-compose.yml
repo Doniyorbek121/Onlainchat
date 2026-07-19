@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: onlainchat
+      POSTGRES_PASSWORD: onlainchat
+      POSTGRES_DB: onlainchat
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U onlainchat"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://onlainchat:onlainchat@db:5432/onlainchat
+      # Set your key here or via an .env file / secret manager:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CHARACTER_AI_MODEL: ${CHARACTER_AI_MODEL:-claude-opus-4-8}
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:

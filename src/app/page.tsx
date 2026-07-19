@@ -7,9 +7,9 @@ import { hasApiKey } from "@/lib/anthropic";
 
 export const dynamic = "force-dynamic";
 
-export default function HomePage() {
-  ensureSeeded();
-  const characters = listCharacters();
+export default async function HomePage() {
+  await ensureSeeded();
+  const characters = await listCharacters();
   const demoMode = !hasApiKey();
 
   return (

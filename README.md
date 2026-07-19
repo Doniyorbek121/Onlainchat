@@ -43,7 +43,7 @@ Built as a complete, self-contained full-stack app inspired by projects like
 | Framework | Next.js 15 (App Router) + React 19 + TS   |
 | Styling   | Tailwind CSS (custom dark design system)  |
 | AI        | `@anthropic-ai/sdk` (streaming Messages)  |
-| Data      | SQLite (`better-sqlite3`)                  |
+| Data      | Pluggable async store — SQLite (`better-sqlite3`) for local dev, **Postgres** (`pg`) for production, selected by `DATABASE_URL` |
 
 ## Getting started
 
@@ -66,6 +66,47 @@ automatically on first run. To seed manually: `pnpm seed`.
 
 Without an API key the app runs in **demo mode** — every feature works, but
 characters reply with placeholder text.
+
+## Database backends
+
+The data layer is a single async interface (`src/lib/db/store.ts`) with two
+interchangeable implementations, chosen at runtime:
+
+- **No `DATABASE_URL`** → embedded **SQLite** file (`better-sqlite3`). Zero
+  config; ideal for local development and demos.
+- **`DATABASE_URL` set** → **Postgres** (`pg`). Recommended for any real
+  deployment (persistent, concurrent, horizontally scalable, works on
+  serverless/managed hosts). Schema is created automatically on first run.
+
+Both backends are covered by the test suite; the Postgres suite runs whenever
+`TEST_DATABASE_URL` is set (locally and in CI).
+
+## Deployment
+
+### Docker Compose (app + Postgres)
+
+```bash
+ANTHROPIC_API_KEY=sk-ant-... docker compose up --build
+# → http://localhost:3000, backed by a Postgres container
+```
+
+### Docker (bring your own Postgres)
+
+```bash
+docker build -t character-ai .
+docker run -p 3000:3000 \
+  -e DATABASE_URL="postgres://user:pass@host:5432/onlainchat" \
+  -e DATABASE_SSL=true \
+  -e ANTHROPIC_API_KEY="sk-ant-..." \
+  character-ai
+```
+
+### Managed platforms (Vercel, Railway, Render, Fly, …)
+
+Set `DATABASE_URL` (e.g. Supabase / Neon / RDS) and `ANTHROPIC_API_KEY` in the
+platform's environment. On serverless, Postgres is required — the SQLite backend
+needs a persistent local filesystem. Add `?sslmode=require` (or `DATABASE_SSL=true`)
+if your provider enforces TLS.
 
 ## Project structure
 
@@ -90,7 +131,10 @@ src/
                               CharacterCard, Discovery, ChatRoom,
                               CharacterForm, CharacterOwnerActions
   lib/
-    db.ts                     SQLite data layer (users, sessions, characters…)
+    db.ts                     Backend selector + async data API
+    db/store.ts               Shared async DataStore interface
+    db/sqlite.ts              SQLite backend (better-sqlite3)
+    db/postgres.ts            Postgres backend (pg)
     auth.ts                   Password hashing + session auth
     anthropic.ts              Claude integration + streaming
     rateLimit.ts              In-memory request throttling

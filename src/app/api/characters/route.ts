@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const characters = listCharacters({
+  const characters = await listCharacters({
     category: searchParams.get("category") || undefined,
     search: searchParams.get("search") || undefined,
   });
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     ? str(body.avatarColor, 9)
     : AVATAR_COLORS[0];
 
-  const character = createCharacter({
+  const character = await createCharacter({
     name,
     tagline: str(body.tagline, 120),
     description: str(body.description, 500),

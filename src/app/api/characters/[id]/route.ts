@@ -15,7 +15,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const character = getCharacter(id);
+  const character = await getCharacter(id);
   if (!character) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -39,7 +39,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   }
 
-  const existing = getCharacter(id);
+  const existing = await getCharacter(id);
   if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -71,7 +71,7 @@ export async function PATCH(
     ? (body.category as string)
     : existing.category;
 
-  const character = updateCharacter(id, user.id, {
+  const character = await updateCharacter(id, user.id, {
     name,
     tagline: str(body.tagline, 120),
     description: str(body.description, 500),
@@ -97,7 +97,7 @@ export async function DELETE(
   if (!user) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   }
-  const ok = deleteCharacter(id, user.id);
+  const ok = await deleteCharacter(id, user.id);
   if (!ok) {
     return NextResponse.json(
       { error: "Not found or not yours" },
