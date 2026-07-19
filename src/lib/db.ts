@@ -46,6 +46,8 @@ function store(): Promise<DataStore> {
 // Users & sessions
 export const createUser = async (i: UserInput) => (await store()).createUser(i);
 export const getUserById = async (id: string) => (await store()).getUserById(id);
+export const getUserByUsername = async (username: string) =>
+  (await store()).getUserByUsername(username);
 export const getUserAuthByLogin = async (login: string) =>
   (await store()).getUserAuthByLogin(login);
 export const userExists = async (u: string, e: string) =>
@@ -122,3 +124,13 @@ export const listMessages = async (conversationId: string) =>
   (await store()).listMessages(conversationId);
 export const deleteLastAssistantMessage = async (conversationId: string) =>
   (await store()).deleteLastAssistantMessage(conversationId);
+
+// Favorites
+export const addFavorite = async (userId: string, characterId: string) =>
+  (await store()).addFavorite(userId, characterId);
+export const removeFavorite = async (userId: string, characterId: string) =>
+  (await store()).removeFavorite(userId, characterId);
+export const isFavorited = async (userId: string, characterId: string) =>
+  (await store()).isFavorited(userId, characterId);
+export const listFavoriteCharacters = async (userId: string) =>
+  (await store()).listFavoriteCharacters(userId);

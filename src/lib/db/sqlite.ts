@@ -47,9 +47,14 @@ function mapCharacter(r: any): Character {
     creatorId: r.creator_id,
     creatorName: r.creator_name,
     interactions: r.interactions,
+    favorites: r.favorites ?? 0,
     createdAt: r.created_at,
   };
 }
+
+const CHAR_SELECT = `SELECT characters.*,
+  (SELECT COUNT(*) FROM favorites f WHERE f.character_id = characters.id) AS favorites
+  FROM characters`;
 function mapConversation(r: any): Conversation {
   return {
     id: r.id,
@@ -113,10 +118,18 @@ export function createSqliteStore(): DataStore {
           id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
           role TEXT NOT NULL, content TEXT NOT NULL, created_at INTEGER NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS favorites (
+          user_id TEXT NOT NULL,
+          character_id TEXT NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+          created_at INTEGER NOT NULL,
+          PRIMARY KEY (user_id, character_id)
+        );
         CREATE INDEX IF NOT EXISTS idx_conv_user ON conversations(user_id, updated_at DESC);
         CREATE INDEX IF NOT EXISTS idx_conv_char ON conversations(character_id);
         CREATE INDEX IF NOT EXISTS idx_msg_conv ON messages(conversation_id, created_at ASC);
         CREATE INDEX IF NOT EXISTS idx_char_cat ON characters(category);
+        CREATE INDEX IF NOT EXISTS idx_fav_char ON favorites(character_id);
+        CREATE INDEX IF NOT EXISTS idx_fav_user ON favorites(user_id, created_at DESC);
       `);
       // Add columns introduced after initial release (existing DBs).
       const cols = db
@@ -147,6 +160,12 @@ export function createSqliteStore(): DataStore {
     },
     async getUserById(id) {
       const r = db.prepare(`SELECT * FROM users WHERE id = ?`).get(id);
+      return r ? mapUser(r) : null;
+    },
+    async getUserByUsername(username) {
+      const r = db
+        .prepare(`SELECT * FROM users WHERE lower(username) = lower(?)`)
+        .get(username);
       return r ? mapUser(r) : null;
     },
     async getUserAuthByLogin(login) {
@@ -264,7 +283,7 @@ export function createSqliteStore(): DataStore {
       return (await this.getCharacter(row.id))!;
     },
     async getCharacter(id) {
-      const r = db.prepare(`SELECT * FROM characters WHERE id = ?`).get(id);
+      const r = db.prepare(`${CHAR_SELECT} WHERE characters.id = ?`).get(id);
       return r ? mapCharacter(r) : null;
     },
     async listCharacters(opts: ListCharactersOpts = {}) {
@@ -288,7 +307,7 @@ export function createSqliteStore(): DataStore {
       const limit = opts.limit ?? 200;
       const rows = db
         .prepare(
-          `SELECT * FROM characters ${where} ORDER BY interactions DESC, created_at DESC LIMIT ${limit}`
+          `${CHAR_SELECT} ${where} ORDER BY interactions DESC, created_at DESC LIMIT ${limit}`
         )
         .all(params);
       return rows.map(mapCharacter);
@@ -411,6 +430,37 @@ export function createSqliteStore(): DataStore {
         )
         .run(conversationId);
       return res.changes > 0;
+    },
+
+    async addFavorite(userId, characterId) {
+      db.prepare(
+        `INSERT OR IGNORE INTO favorites (user_id, character_id, created_at)
+         VALUES (?, ?, ?)`
+      ).run(userId, characterId, Date.now());
+    },
+    async removeFavorite(userId, characterId) {
+      db.prepare(
+        `DELETE FROM favorites WHERE user_id = ? AND character_id = ?`
+      ).run(userId, characterId);
+    },
+    async isFavorited(userId, characterId) {
+      const r = db
+        .prepare(
+          `SELECT 1 FROM favorites WHERE user_id = ? AND character_id = ? LIMIT 1`
+        )
+        .get(userId, characterId);
+      return Boolean(r);
+    },
+    async listFavoriteCharacters(userId) {
+      const rows = db
+        .prepare(
+          `${CHAR_SELECT}
+           JOIN favorites fav ON fav.character_id = characters.id
+           WHERE fav.user_id = ?
+           ORDER BY fav.created_at DESC LIMIT 200`
+        )
+        .all(userId);
+      return rows.map(mapCharacter);
     },
   };
 }

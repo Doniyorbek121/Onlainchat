@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import TopBar from "@/components/TopBar";
 import CharacterOwnerActions from "@/components/CharacterOwnerActions";
-import { getCharacter } from "@/lib/db";
+import FavoriteButton from "@/components/FavoriteButton";
+import ShareButton from "@/components/ShareButton";
+import { getCharacter, isFavorited, getUserById } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +24,9 @@ export default async function CharacterDetailPage({
 
   // P0: private characters are visible only to their creator.
   if (character.visibility === "private" && !isOwner) notFound();
+
+  const favorited = user ? await isFavorited(user.id, character.id) : false;
+  const creator = await getUserById(character.creatorId);
 
   return (
     <div className="min-h-screen">
@@ -44,10 +49,24 @@ export default async function CharacterDetailPage({
             />
             <div>
               <h1 className="text-2xl font-bold">{character.name}</h1>
-              <p className="text-sm text-muted">by {character.creatorName}</p>
+              <p className="text-sm text-muted">
+                by{" "}
+                {creator ? (
+                  <Link
+                    href={`/u/${creator.username}`}
+                    className="text-brand-soft hover:underline"
+                  >
+                    {character.creatorName}
+                  </Link>
+                ) : (
+                  character.creatorName
+                )}
+              </p>
             </div>
             <span className="rounded-full bg-bg-soft px-3 py-1 text-xs font-medium text-muted">
               {character.category} · {character.interactions.toLocaleString()} chats
+              {character.favorites > 0 &&
+                ` · ♥ ${character.favorites.toLocaleString()}`}
             </span>
 
             {character.tagline && (
@@ -61,12 +80,20 @@ export default async function CharacterDetailPage({
               </p>
             )}
 
-            <Link
-              href={`/chat/${character.id}`}
-              className="btn-primary mt-2 px-8"
-            >
-              💬 Start chatting
-            </Link>
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+              <Link href={`/chat/${character.id}`} className="btn-primary px-8">
+                💬 Start chatting
+              </Link>
+              <FavoriteButton
+                characterId={character.id}
+                initialFavorited={favorited}
+                initialCount={character.favorites}
+                isAuthed={Boolean(user)}
+              />
+              {character.visibility === "public" && (
+                <ShareButton path={`/character/${character.id}`} />
+              )}
+            </div>
 
             {isOwner && (
               <CharacterOwnerActions

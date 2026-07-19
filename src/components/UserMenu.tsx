@@ -52,6 +52,13 @@ export default function UserMenu({ user }: { user: User }) {
               <p className="truncate text-xs text-muted">@{user.username}</p>
             </div>
             <Link
+              href={`/u/${user.username}`}
+              onClick={() => setOpen(false)}
+              className="block px-4 py-2.5 text-sm hover:bg-bg-hover"
+            >
+              View profile
+            </Link>
+            <Link
               href="/mine"
               onClick={() => setOpen(false)}
               className="block px-4 py-2.5 text-sm hover:bg-bg-hover"

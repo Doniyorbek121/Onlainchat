@@ -39,9 +39,17 @@ export default function CharacterCard({ character }: { character: Character }) {
         <span className="rounded-full bg-bg-soft px-2.5 py-1 text-[11px] font-medium text-muted">
           {character.category}
         </span>
-        <span className="flex items-center gap-1 text-[11px] text-muted">
-          <span className="text-brand-soft">◆</span>
-          {formatCount(character.interactions)} chats
+        <span className="flex items-center gap-2 text-[11px] text-muted">
+          <span className="flex items-center gap-1">
+            <span className="text-brand-soft">◆</span>
+            {formatCount(character.interactions)}
+          </span>
+          {character.favorites > 0 && (
+            <span className="flex items-center gap-1">
+              <span className="text-pink-400">♥</span>
+              {formatCount(character.favorites)}
+            </span>
+          )}
         </span>
       </div>
     </Link>

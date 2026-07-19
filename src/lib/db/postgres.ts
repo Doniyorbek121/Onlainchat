@@ -46,9 +46,14 @@ function mapCharacter(r: any): Character {
     creatorId: r.creator_id,
     creatorName: r.creator_name,
     interactions: Number(r.interactions),
+    favorites: Number(r.favorites ?? 0),
     createdAt: Number(r.created_at),
   };
 }
+
+const CHAR_SELECT = `SELECT characters.*,
+  (SELECT COUNT(*) FROM favorites f WHERE f.character_id = characters.id) AS favorites
+  FROM characters`;
 function mapConversation(r: any): Conversation {
   return {
     id: r.id,
@@ -118,10 +123,18 @@ export function createPostgresStore(connectionString: string): DataStore {
           id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
           role TEXT NOT NULL, content TEXT NOT NULL, created_at BIGINT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS favorites (
+          user_id TEXT NOT NULL,
+          character_id TEXT NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+          created_at BIGINT NOT NULL,
+          PRIMARY KEY (user_id, character_id)
+        );
         CREATE INDEX IF NOT EXISTS idx_conv_user ON conversations(user_id, updated_at DESC);
         CREATE INDEX IF NOT EXISTS idx_conv_char ON conversations(character_id);
         CREATE INDEX IF NOT EXISTS idx_msg_conv ON messages(conversation_id, created_at ASC);
         CREATE INDEX IF NOT EXISTS idx_char_cat ON characters(category);
+        CREATE INDEX IF NOT EXISTS idx_fav_char ON favorites(character_id);
+        CREATE INDEX IF NOT EXISTS idx_fav_user ON favorites(user_id, created_at DESC);
       `);
       // Add columns introduced after initial release (existing DBs).
       await q(
@@ -146,6 +159,12 @@ export function createPostgresStore(connectionString: string): DataStore {
     },
     async getUserById(id) {
       const r = await q(`SELECT * FROM users WHERE id = $1`, [id]);
+      return r.rows[0] ? mapUser(r.rows[0]) : null;
+    },
+    async getUserByUsername(username) {
+      const r = await q(`SELECT * FROM users WHERE lower(username) = lower($1)`, [
+        username,
+      ]);
       return r.rows[0] ? mapUser(r.rows[0]) : null;
     },
     async getUserAuthByLogin(login) {
@@ -281,7 +300,7 @@ export function createPostgresStore(connectionString: string): DataStore {
       return mapCharacter(r.rows[0]);
     },
     async getCharacter(id) {
-      const r = await q(`SELECT * FROM characters WHERE id = $1`, [id]);
+      const r = await q(`${CHAR_SELECT} WHERE characters.id = $1`, [id]);
       return r.rows[0] ? mapCharacter(r.rows[0]) : null;
     },
     async listCharacters(opts: ListCharactersOpts = {}) {
@@ -304,7 +323,7 @@ export function createPostgresStore(connectionString: string): DataStore {
       const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
       const limit = opts.limit ?? 200;
       const r = await q(
-        `SELECT * FROM characters ${where}
+        `${CHAR_SELECT} ${where}
          ORDER BY interactions DESC, created_at DESC LIMIT ${add(limit)}`,
         params
       );
@@ -427,6 +446,37 @@ export function createPostgresStore(connectionString: string): DataStore {
         [conversationId]
       );
       return (r.rowCount ?? 0) > 0;
+    },
+
+    async addFavorite(userId, characterId) {
+      await q(
+        `INSERT INTO favorites (user_id, character_id, created_at)
+         VALUES ($1, $2, $3) ON CONFLICT (user_id, character_id) DO NOTHING`,
+        [userId, characterId, Date.now()]
+      );
+    },
+    async removeFavorite(userId, characterId) {
+      await q(`DELETE FROM favorites WHERE user_id = $1 AND character_id = $2`, [
+        userId,
+        characterId,
+      ]);
+    },
+    async isFavorited(userId, characterId) {
+      const r = await q(
+        `SELECT 1 FROM favorites WHERE user_id = $1 AND character_id = $2 LIMIT 1`,
+        [userId, characterId]
+      );
+      return (r.rowCount ?? 0) > 0;
+    },
+    async listFavoriteCharacters(userId) {
+      const r = await q(
+        `${CHAR_SELECT}
+         JOIN favorites fav ON fav.character_id = characters.id
+         WHERE fav.user_id = $1
+         ORDER BY fav.created_at DESC LIMIT 200`,
+        [userId]
+      );
+      return r.rows.map(mapCharacter);
     },
   };
 }

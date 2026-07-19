@@ -59,6 +59,7 @@ export interface DataStore {
   // Users & sessions
   createUser(input: UserInput): Promise<User>;
   getUserById(id: string): Promise<User | null>;
+  getUserByUsername(username: string): Promise<User | null>;
   getUserAuthByLogin(
     login: string
   ): Promise<{ user: User; passwordHash: string } | null>;
@@ -119,6 +120,12 @@ export interface DataStore {
   ): Promise<Message>;
   listMessages(conversationId: string): Promise<Message[]>;
   deleteLastAssistantMessage(conversationId: string): Promise<boolean>;
+
+  // Favorites
+  addFavorite(userId: string, characterId: string): Promise<void>;
+  removeFavorite(userId: string, characterId: string): Promise<void>;
+  isFavorited(userId: string, characterId: string): Promise<boolean>;
+  listFavoriteCharacters(userId: string): Promise<Character[]>;
 }
 
 /** Shared id generator for both backends. */

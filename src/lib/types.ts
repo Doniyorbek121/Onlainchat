@@ -21,6 +21,7 @@ export interface Character {
   creatorId: string;
   creatorName: string;
   interactions: number;
+  favorites: number;
   createdAt: number;
 }
 

@@ -27,6 +27,11 @@ Built as a complete, self-contained full-stack app inspired by projects like
   cropped and compressed client-side to a small square and stored inline, so no
   external file storage is needed. Owners can edit or delete their characters
   (deleting a character cascades to its chats); ownership is enforced on every write.
+- ❤️ **Save & share** — like/save characters (with live counts shown on cards and
+  profiles) and copy a shareable link (native share sheet where available).
+- 👤 **Profiles** — public profile pages at `/u/<username>` listing a creator's
+  public characters and chat totals; your own profile also shows your saved
+  characters. Creator names link through to their profile.
 - 🔒 **Private characters** — private characters are hidden from discovery and
   reachable only by their creator; enforced on every page and API route.
 - 🗂️ **My characters & My chats** — manage everything you created; keep multiple
@@ -130,6 +135,7 @@ src/
     chat/[characterId]/       Chat screen
     character/[id]/           Character profile (+ owner edit/delete)
     character/[id]/edit/      Edit a character (owner only)
+    u/[username]/             Public user profile (created + saved)
     mine/                     My characters (manage / private)
     library/                  My chats (multiple per character, deletable)
     api/

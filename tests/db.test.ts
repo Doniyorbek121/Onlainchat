@@ -142,6 +142,40 @@ describe("characters", () => {
     await db.deleteCharacter(c.id, owner);
     expect(await db.getConversation(conv.id)).toBeNull();
     expect(await db.listMessages(conv.id)).toHaveLength(0);
+  });
+
+  it("favorites: toggle, count, list, and cascade", async () => {
+    const c = await make();
+    expect(await db.isFavorited("fan1", c.id)).toBe(false);
+
+    await db.addFavorite("fan1", c.id);
+    await db.addFavorite("fan1", c.id); // idempotent
+    await db.addFavorite("fan2", c.id);
+    expect(await db.isFavorited("fan1", c.id)).toBe(true);
+    expect((await db.getCharacter(c.id))?.favorites).toBe(2);
+
+    const favs = await db.listFavoriteCharacters("fan1");
+    expect(favs.some((x: any) => x.id === c.id)).toBe(true);
+
+    await db.removeFavorite("fan1", c.id);
+    expect(await db.isFavorited("fan1", c.id)).toBe(false);
+    expect((await db.getCharacter(c.id))?.favorites).toBe(1);
+
+    await db.deleteCharacter(c.id, owner); // favorites cascade away
+    expect(await db.listFavoriteCharacters("fan2")).toHaveLength(0);
     cleanup();
+  });
+});
+
+describe("getUserByUsername", () => {
+  it("finds a user case-insensitively", async () => {
+    const u = await db.createUser({
+      username: "ProfileUser",
+      email: "prof@example.com",
+      displayName: "Prof",
+      passwordHash: "h",
+    });
+    expect((await db.getUserByUsername("profileuser"))?.id).toBe(u.id);
+    expect(await db.getUserByUsername("nobody")).toBeNull();
   });
 });

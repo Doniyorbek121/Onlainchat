@@ -113,4 +113,39 @@ describe.skipIf(!URL)("postgres backend", () => {
     expect(await store.getConversation(conv.id)).toBeNull();
     expect(await store.listMessages(conv.id)).toHaveLength(0);
   });
+
+  it("favorites: toggle + count, and username lookup", async () => {
+    const owner = `owner_${suffix}`;
+    const c = await store.createCharacter({
+      name: "FavHero",
+      tagline: "t",
+      description: "d",
+      greeting: "hi",
+      persona: "p",
+      avatarEmoji: "🤖",
+      avatarColor: "#7c5cff",
+      category: "Games",
+      visibility: "public",
+      creatorId: owner,
+      creatorName: "Owner",
+    });
+    const fan = `fan_${suffix}`;
+    expect(await store.isFavorited(fan, c.id)).toBe(false);
+    await store.addFavorite(fan, c.id);
+    await store.addFavorite(fan, c.id); // idempotent (ON CONFLICT)
+    expect(await store.isFavorited(fan, c.id)).toBe(true);
+    expect((await store.getCharacter(c.id))?.favorites).toBe(1);
+    expect((await store.listFavoriteCharacters(fan)).some((x: any) => x.id === c.id)).toBe(true);
+    await store.removeFavorite(fan, c.id);
+    expect((await store.getCharacter(c.id))?.favorites).toBe(0);
+    await store.deleteCharacter(c.id, owner);
+
+    const u = await store.createUser({
+      username: `Prof_${suffix}`,
+      email: `prof_${suffix}@ex.com`,
+      displayName: "Prof",
+      passwordHash: "h",
+    });
+    expect((await store.getUserByUsername(`prof_${suffix}`))?.id).toBe(u.id);
+  });
 });
