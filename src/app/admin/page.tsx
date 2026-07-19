@@ -11,6 +11,9 @@ import {
   countConversations,
   countMessages,
   countOpenReports,
+  countUsersSince,
+  countCharactersSince,
+  countMessagesSince,
   listRecentUsers,
   listRecentCharacters,
   listReports,
@@ -26,6 +29,8 @@ export default async function AdminPage() {
   const admin = await getAdminUser();
   if (!admin) redirect("/");
 
+  const now = Date.now();
+  const DAY = 86_400_000;
   const [
     users,
     characters,
@@ -35,6 +40,12 @@ export default async function AdminPage() {
     recentUsers,
     recentChars,
     reports,
+    users24h,
+    users7d,
+    chars24h,
+    chars7d,
+    msgs24h,
+    msgs7d,
   ] = await Promise.all([
     countUsers(),
     countCharacters(),
@@ -44,6 +55,12 @@ export default async function AdminPage() {
     listRecentUsers(20),
     listRecentCharacters(20),
     listReports("open", 50),
+    countUsersSince(now - DAY),
+    countUsersSince(now - 7 * DAY),
+    countCharactersSince(now - DAY),
+    countCharactersSince(now - 7 * DAY),
+    countMessagesSince(now - DAY),
+    countMessagesSince(now - 7 * DAY),
   ]);
 
   const stats = [
@@ -51,6 +68,12 @@ export default async function AdminPage() {
     { label: "Characters", value: characters },
     { label: "Conversations", value: conversations },
     { label: "Messages", value: messages },
+  ];
+
+  const growth = [
+    { label: "New users", d1: users24h, d7: users7d },
+    { label: "New characters", d1: chars24h, d7: chars7d },
+    { label: "Messages", d1: msgs24h, d7: msgs7d },
   ];
 
   return (
@@ -73,6 +96,35 @@ export default async function AdminPage() {
             </div>
           ))}
         </div>
+
+        {/* Growth */}
+        <section className="mb-8">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
+            Growth
+          </h2>
+          <div className="card overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-line text-left text-xs text-muted">
+                  <th className="p-3 font-medium">Metric</th>
+                  <th className="p-3 text-right font-medium">Last 24h</th>
+                  <th className="p-3 text-right font-medium">Last 7d</th>
+                </tr>
+              </thead>
+              <tbody>
+                {growth.map((g) => (
+                  <tr key={g.label} className="border-b border-line/50 last:border-0">
+                    <td className="p-3 text-white">{g.label}</td>
+                    <td className="p-3 text-right font-semibold text-white">
+                      +{fmt(g.d1)}
+                    </td>
+                    <td className="p-3 text-right text-muted">+{fmt(g.d7)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
 
         {/* Open reports */}
         <section className="mb-8">

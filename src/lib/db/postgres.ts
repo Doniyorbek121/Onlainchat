@@ -166,6 +166,14 @@ export function createPostgresStore(connectionString: string): DataStore {
         CREATE INDEX IF NOT EXISTS idx_char_cat ON characters(category);
         CREATE INDEX IF NOT EXISTS idx_fav_char ON favorites(character_id);
         CREATE INDEX IF NOT EXISTS idx_fav_user ON favorites(user_id, created_at DESC);
+        -- Hot discovery path: public list ordered by popularity/recency,
+        -- optionally filtered by category; plus owner ("my characters") lists.
+        CREATE INDEX IF NOT EXISTS idx_char_public
+          ON characters(visibility, interactions DESC, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_char_viscat
+          ON characters(visibility, category, interactions DESC);
+        CREATE INDEX IF NOT EXISTS idx_char_creator
+          ON characters(creator_id, created_at DESC);
       `);
       // Add columns introduced after initial release (existing DBs).
       await q(
@@ -600,6 +608,35 @@ export function createPostgresStore(connectionString: string): DataStore {
     async countMessages() {
       return Number(
         (await q(`SELECT COUNT(*)::int8 AS c FROM messages`)).rows[0].c
+      );
+    },
+    async countUsersSince(sinceMs) {
+      return Number(
+        (
+          await q(`SELECT COUNT(*)::int8 AS c FROM users WHERE created_at >= $1`, [
+            sinceMs,
+          ])
+        ).rows[0].c
+      );
+    },
+    async countCharactersSince(sinceMs) {
+      return Number(
+        (
+          await q(
+            `SELECT COUNT(*)::int8 AS c FROM characters WHERE created_at >= $1`,
+            [sinceMs]
+          )
+        ).rows[0].c
+      );
+    },
+    async countMessagesSince(sinceMs) {
+      return Number(
+        (
+          await q(
+            `SELECT COUNT(*)::int8 AS c FROM messages WHERE created_at >= $1`,
+            [sinceMs]
+          )
+        ).rows[0].c
       );
     },
     async listRecentUsers(limit) {

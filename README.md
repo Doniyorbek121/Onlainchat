@@ -78,8 +78,10 @@ Built as a complete, self-contained full-stack app inspired by projects like
 - 🧷 **CSRF protection** — a double-submit token (`x-csrf-token` header vs.
   `oc_csrf` cookie) plus a same-origin check guard every state-changing API
   request, enforced centrally in middleware.
-- ✅ **Tested & CI** — Vitest unit tests for the data layer and auth, plus a
-  GitHub Actions workflow that runs tests and a production build on every push.
+- ✅ **Tested & CI** — Vitest unit/integration tests (data layer, auth,
+  moderation, rate limiting — SQLite always, Postgres when `TEST_DATABASE_URL`
+  is set) **and Playwright E2E** (consent gate, register → create → chat,
+  moderation), run with a production build on every push via GitHub Actions.
 - 🧠 **Claude-powered** — each character becomes a role-played system prompt;
   streaming via Server-Sent Events.
 - 💾 **Zero-config persistence** — embedded SQLite via `better-sqlite3`.

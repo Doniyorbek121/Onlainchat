@@ -1,4 +1,4 @@
-import type { MessageRole, ReportStatus } from "./types";
+import type { Character, MessageRole, ReportStatus } from "./types";
 import type {
   CharacterInput,
   CharacterUpdate,
@@ -108,20 +108,51 @@ export const updateReportStatus = async (id: string, status: ReportStatus) =>
 export const countOpenReports = async () => (await store()).countOpenReports();
 
 // Characters
-export const createCharacter = async (i: CharacterInput) =>
-  (await store()).createCharacter(i);
+//
+// Short-TTL in-process cache for the public discovery lists (no search, no
+// owner filter). Discovery is the hottest read path and slightly-stale
+// ordering is fine; the cache is cleared whenever characters change. This is
+// per-instance — behind multiple replicas each keeps its own (a shared cache
+// like Redis would be the next step at very large scale).
+const DISCOVERY_TTL = 20_000;
+const discoveryCache = new Map<string, { at: number; data: Character[] }>();
+
+function invalidateDiscovery() {
+  discoveryCache.clear();
+}
+
+export const createCharacter = async (i: CharacterInput) => {
+  const c = await (await store()).createCharacter(i);
+  invalidateDiscovery();
+  return c;
+};
 export const getCharacter = async (id: string) => (await store()).getCharacter(id);
-export const listCharacters = async (opts?: ListCharactersOpts) =>
-  (await store()).listCharacters(opts);
+export const listCharacters = async (opts: ListCharactersOpts = {}) => {
+  const cacheable = !opts.creatorId && !opts.search;
+  if (!cacheable) return (await store()).listCharacters(opts);
+  const key = `${opts.category ?? "All"}:${opts.limit ?? 200}:${opts.offset ?? 0}`;
+  const hit = discoveryCache.get(key);
+  if (hit && Date.now() - hit.at < DISCOVERY_TTL) return hit.data;
+  const data = await (await store()).listCharacters(opts);
+  discoveryCache.set(key, { at: Date.now(), data });
+  return data;
+};
 export const updateCharacter = async (
   id: string,
   creatorId: string,
   update: CharacterUpdate
-) => (await store()).updateCharacter(id, creatorId, update);
+) => {
+  const c = await (await store()).updateCharacter(id, creatorId, update);
+  invalidateDiscovery();
+  return c;
+};
 export const incrementInteractions = async (id: string) =>
   (await store()).incrementInteractions(id);
-export const deleteCharacter = async (id: string, creatorId: string) =>
-  (await store()).deleteCharacter(id, creatorId);
+export const deleteCharacter = async (id: string, creatorId: string) => {
+  const ok = await (await store()).deleteCharacter(id, creatorId);
+  if (ok) invalidateDiscovery();
+  return ok;
+};
 export const countCharacters = async () => (await store()).countCharacters();
 
 // Conversations
@@ -167,11 +198,23 @@ export const countUsers = async () => (await store()).countUsers();
 export const countConversations = async () =>
   (await store()).countConversations();
 export const countMessages = async () => (await store()).countMessages();
+export const countUsersSince = async (sinceMs: number) =>
+  (await store()).countUsersSince(sinceMs);
+export const countCharactersSince = async (sinceMs: number) =>
+  (await store()).countCharactersSince(sinceMs);
+export const countMessagesSince = async (sinceMs: number) =>
+  (await store()).countMessagesSince(sinceMs);
 export const listRecentUsers = async (limit: number) =>
   (await store()).listRecentUsers(limit);
 export const listRecentCharacters = async (limit: number) =>
   (await store()).listRecentCharacters(limit);
-export const deleteUserCascade = async (userId: string) =>
-  (await store()).deleteUserCascade(userId);
-export const adminDeleteCharacter = async (id: string) =>
-  (await store()).adminDeleteCharacter(id);
+export const deleteUserCascade = async (userId: string) => {
+  const ok = await (await store()).deleteUserCascade(userId);
+  if (ok) invalidateDiscovery();
+  return ok;
+};
+export const adminDeleteCharacter = async (id: string) => {
+  const ok = await (await store()).adminDeleteCharacter(id);
+  if (ok) invalidateDiscovery();
+  return ok;
+};

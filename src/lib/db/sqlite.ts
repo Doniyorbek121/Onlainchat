@@ -161,6 +161,14 @@ export function createSqliteStore(): DataStore {
         CREATE INDEX IF NOT EXISTS idx_char_cat ON characters(category);
         CREATE INDEX IF NOT EXISTS idx_fav_char ON favorites(character_id);
         CREATE INDEX IF NOT EXISTS idx_fav_user ON favorites(user_id, created_at DESC);
+        -- Hot discovery path: public list ordered by popularity/recency,
+        -- optionally filtered by category; plus owner ("my characters") lists.
+        CREATE INDEX IF NOT EXISTS idx_char_public
+          ON characters(visibility, interactions DESC, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_char_viscat
+          ON characters(visibility, category, interactions DESC);
+        CREATE INDEX IF NOT EXISTS idx_char_creator
+          ON characters(creator_id, created_at DESC);
       `);
       // Add columns introduced after initial release (existing DBs).
       const cols = db
@@ -597,6 +605,27 @@ export function createSqliteStore(): DataStore {
     },
     async countMessages() {
       return (db.prepare(`SELECT COUNT(*) AS c FROM messages`).get() as any).c;
+    },
+    async countUsersSince(sinceMs) {
+      return (
+        db
+          .prepare(`SELECT COUNT(*) AS c FROM users WHERE created_at >= ?`)
+          .get(sinceMs) as any
+      ).c;
+    },
+    async countCharactersSince(sinceMs) {
+      return (
+        db
+          .prepare(`SELECT COUNT(*) AS c FROM characters WHERE created_at >= ?`)
+          .get(sinceMs) as any
+      ).c;
+    },
+    async countMessagesSince(sinceMs) {
+      return (
+        db
+          .prepare(`SELECT COUNT(*) AS c FROM messages WHERE created_at >= ?`)
+          .get(sinceMs) as any
+      ).c;
     },
     async listRecentUsers(limit) {
       const rows = db

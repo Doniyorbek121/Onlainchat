@@ -90,6 +90,9 @@ export interface DataStore {
   countUsers(): Promise<number>;
   countConversations(): Promise<number>;
   countMessages(): Promise<number>;
+  countUsersSince(sinceMs: number): Promise<number>;
+  countCharactersSince(sinceMs: number): Promise<number>;
+  countMessagesSince(sinceMs: number): Promise<number>;
   listRecentUsers(limit: number): Promise<User[]>;
   listRecentCharacters(limit: number): Promise<Character[]>;
   deleteUserCascade(userId: string): Promise<boolean>;

@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getCharacter, deleteCharacter, updateCharacter } from "@/lib/db";
 import { CATEGORIES, AVATAR_COLORS, AVATAR_EMOJIS } from "@/lib/types";
 import { validAvatarImage } from "@/lib/validate";
-import { persistAvatar } from "@/lib/storage";
+import { persistAvatar, deleteAvatar } from "@/lib/storage";
 import { screenCharacterFields, MODERATION_MESSAGE } from "@/lib/moderation";
 import { logger } from "@/lib/logger";
 
@@ -111,6 +111,10 @@ export async function PATCH(
   } else {
     avatarImage = existing.avatarImage;
   }
+  // If the stored image changed, clean up the old object (no-op unless S3).
+  if (existing.avatarImage && existing.avatarImage !== avatarImage) {
+    await deleteAvatar(existing.avatarImage);
+  }
 
   const character = await updateCharacter(id, user.id, {
     name,
@@ -139,6 +143,7 @@ export async function DELETE(
   if (!user) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   }
+  const existing = await getCharacter(id);
   const ok = await deleteCharacter(id, user.id);
   if (!ok) {
     return NextResponse.json(
@@ -146,5 +151,6 @@ export async function DELETE(
       { status: 403 }
     );
   }
+  if (existing?.avatarImage) await deleteAvatar(existing.avatarImage);
   return NextResponse.json({ ok: true });
 }

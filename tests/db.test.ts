@@ -280,6 +280,10 @@ describe("admin", () => {
     await db.addMessage(conv.id, "user", "hi");
 
     expect(await db.countUsers()).toBeGreaterThan(0);
+    expect(await db.countUsersSince(0)).toBeGreaterThan(0);
+    expect(await db.countUsersSince(Date.now() + 1_000_000)).toBe(0);
+    expect(await db.countCharactersSince(0)).toBeGreaterThan(0);
+    expect(await db.countMessagesSince(0)).toBeGreaterThan(0);
     expect((await db.listRecentUsers(50)).some((x: any) => x.id === u.id)).toBe(
       true
     );

@@ -69,8 +69,11 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
           <form onSubmit={submit} className="mt-6 flex flex-col gap-4">
             {isLogin ? (
               <div>
-                <label className="label">{t("auth.emailOrUsername")}</label>
+                <label className="label" htmlFor="af-login">
+                  {t("auth.emailOrUsername")}
+                </label>
                 <input
+                  id="af-login"
                   className="input"
                   autoComplete="username"
                   value={login}
@@ -81,8 +84,11 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
             ) : (
               <>
                 <div>
-                  <label className="label">{t("auth.username")}</label>
+                  <label className="label" htmlFor="af-username">
+                    {t("auth.username")}
+                  </label>
                   <input
+                    id="af-username"
                     className="input"
                     autoComplete="username"
                     value={username}
@@ -91,8 +97,11 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
                   />
                 </div>
                 <div>
-                  <label className="label">{t("auth.displayName")}</label>
+                  <label className="label" htmlFor="af-displayname">
+                    {t("auth.displayName")}
+                  </label>
                   <input
+                    id="af-displayname"
                     className="input"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
@@ -100,8 +109,11 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
                   />
                 </div>
                 <div>
-                  <label className="label">{t("auth.email")}</label>
+                  <label className="label" htmlFor="af-email">
+                    {t("auth.email")}
+                  </label>
                   <input
+                    id="af-email"
                     className="input"
                     type="email"
                     autoComplete="email"
@@ -115,7 +127,9 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
 
             <div>
               <div className="flex items-center justify-between">
-                <label className="label">{t("auth.password")}</label>
+                <label className="label" htmlFor="af-password">
+                  {t("auth.password")}
+                </label>
                 {isLogin && (
                   <Link
                     href="/forgot"
@@ -126,6 +140,7 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
                 )}
               </div>
               <input
+                id="af-password"
                 className="input"
                 type="password"
                 autoComplete={isLogin ? "current-password" : "new-password"}

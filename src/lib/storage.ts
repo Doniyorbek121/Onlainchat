@@ -83,3 +83,41 @@ export async function persistAvatar(dataUrl: string): Promise<string> {
     return dataUrl;
   }
 }
+
+/** Resolves the object key for a stored avatar URL, or null if it isn't ours. */
+function keyForUrl(url: string): string | null {
+  if (!url || url.startsWith("data:")) return null;
+  const base = (process.env.S3_PUBLIC_URL || "").replace(/\/$/, "");
+  if (base && url.startsWith(`${base}/`)) return url.slice(base.length + 1);
+  // A bare key we stored when S3_PUBLIC_URL wasn't set.
+  if (url.startsWith("avatars/")) return url;
+  return null;
+}
+
+/**
+ * Best-effort delete of a previously-uploaded avatar object, so replacing or
+ * deleting a character doesn't leave orphaned files (and storage cost) behind.
+ * Inline data URLs and foreign URLs are ignored. Never throws.
+ */
+export async function deleteAvatar(url: string): Promise<void> {
+  if (!s3Configured()) return;
+  const key = keyForUrl(url);
+  if (!key) return;
+  try {
+    const { S3Client, DeleteObjectCommand } = await import("@aws-sdk/client-s3");
+    const client = new S3Client({
+      region: process.env.S3_REGION || "auto",
+      endpoint: process.env.S3_ENDPOINT || undefined,
+      forcePathStyle: Boolean(process.env.S3_ENDPOINT),
+      credentials: {
+        accessKeyId: process.env.S3_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
+      },
+    });
+    await client.send(
+      new DeleteObjectCommand({ Bucket: process.env.S3_BUCKET!, Key: key })
+    );
+  } catch (err) {
+    logger.warn("storage.delete_failed", { message: (err as Error)?.message });
+  }
+}
