@@ -1,4 +1,5 @@
 import type {
+  AuditEntry,
   Character,
   Conversation,
   Message,
@@ -8,6 +9,13 @@ import type {
   ReportTargetType,
   User,
 } from "../types";
+
+export interface AuditInput {
+  adminId: string;
+  action: string;
+  targetType: string;
+  targetId: string;
+}
 
 export interface CharacterInput {
   name: string;
@@ -128,6 +136,10 @@ export interface DataStore {
   listReports(status: ReportStatus | "all", limit: number): Promise<Report[]>;
   updateReportStatus(id: string, status: ReportStatus): Promise<boolean>;
   countOpenReports(): Promise<number>;
+
+  // Admin audit log
+  addAuditLog(input: AuditInput): Promise<void>;
+  listAuditLog(limit: number): Promise<AuditEntry[]>;
 
   // Characters
   createCharacter(input: CharacterInput): Promise<Character>;

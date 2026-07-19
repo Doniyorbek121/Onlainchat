@@ -22,6 +22,15 @@ export interface Report {
   createdAt: number;
 }
 
+export interface AuditEntry {
+  id: string;
+  adminId: string;
+  action: string;
+  targetType: string;
+  targetId: string;
+  createdAt: number;
+}
+
 export interface Character {
   id: string;
   name: string;

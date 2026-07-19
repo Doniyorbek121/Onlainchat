@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminUser } from "@/lib/auth";
-import { adminDeleteCharacter, getCharacter } from "@/lib/db";
+import { adminDeleteCharacter, getCharacter, addAuditLog } from "@/lib/db";
 import { deleteAvatar } from "@/lib/storage";
 
 export const runtime = "nodejs";
@@ -19,5 +19,11 @@ export async function DELETE(
   const ok = await adminDeleteCharacter(id);
   if (!ok) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (existing?.avatarImage) await deleteAvatar(existing.avatarImage);
+  await addAuditLog({
+    adminId: admin.id,
+    action: "delete_character",
+    targetType: "character",
+    targetId: id,
+  });
   return NextResponse.json({ ok: true });
 }

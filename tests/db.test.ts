@@ -305,6 +305,17 @@ describe("admin", () => {
     expect(await db.adminDeleteCharacter(c2.id)).toBe(true);
     expect(await db.getCharacter(c2.id)).toBeNull();
 
+    // audit log records admin actions
+    await db.addAuditLog({
+      adminId: "admin_1",
+      action: "delete_character",
+      targetType: "character",
+      targetId: c2.id,
+    });
+    const audit = await db.listAuditLog(10);
+    expect(audit[0].action).toBe("delete_character");
+    expect(audit[0].adminId).toBe("admin_1");
+
     // deleting the user cascades their characters/conversations/messages
     expect(await db.deleteUserCascade(u.id)).toBe(true);
     expect(await db.getUserById(u.id)).toBeNull();

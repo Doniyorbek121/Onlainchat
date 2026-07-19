@@ -133,6 +133,21 @@ export async function rateLimit(
   }
 }
 
+/**
+ * Clears a counter (e.g. after a successful login, so failed-attempt lockouts
+ * don't penalise a legitimate user). Best-effort; never throws.
+ */
+export async function resetRateLimit(key: string): Promise<void> {
+  buckets.delete(key);
+  const client = await getRedis();
+  if (!client) return;
+  try {
+    await client.del(`rl:${key}`);
+  } catch (err) {
+    logger.warn("ratelimit.reset_failed", { message: (err as Error)?.message });
+  }
+}
+
 /** Derives a best-effort client identifier from proxy headers. */
 export function clientKey(req: NextRequest, scope: string): string {
   const fwd = req.headers.get("x-forwarded-for");

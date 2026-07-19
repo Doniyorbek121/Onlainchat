@@ -73,6 +73,14 @@ Built as a complete, self-contained full-stack app inspired by projects like
   analytics — all off by default and enabled purely through env vars.
 - ♿ **Accessibility** — skip-to-content link, visible keyboard focus, ARIA on
   menus/dialogs/tabs, labelled controls, and reduced-motion support.
+- 📱 **Installable PWA + Play Store ready** — web manifest, maskable icons,
+  service worker (offline shell + asset caching), and a **Trusted Web Activity**
+  path (Digital Asset Links at `/.well-known/assetlinks.json`, a Bubblewrap
+  `twa-manifest.json`, and `PLAYSTORE.md`) to ship the same app to Google Play.
+- 🧱 **Resilient & compliant** — route/global error boundaries and loading
+  states, per-account login lockout, an **admin audit log**, AI-**output**
+  safety screening with a CSAE escalation hook (`CSAM_REPORT_WEBHOOK`), and
+  `/.well-known/security.txt`.
 - 🛡️ **Rate limiting** — login, registration, chat and character creation are
   throttled per client to resist brute-force and spam.
 - 🧷 **CSRF protection** — a double-submit token (`x-csrf-token` header vs.
@@ -163,6 +171,10 @@ Set `DATABASE_URL` (e.g. Supabase / Neon / RDS) and `ANTHROPIC_API_KEY` in the
 platform's environment. On serverless, Postgres is required — the SQLite backend
 needs a persistent local filesystem. Add `?sslmode=require` (or `DATABASE_SSL=true`)
 if your provider enforces TLS.
+
+See **[`DEPLOY.md`](./DEPLOY.md)** for a full production checklist (env vars,
+health probe, backups, safety escalation) and **[`PLAYSTORE.md`](./PLAYSTORE.md)**
+for packaging the PWA as an Android app on Google Play.
 
 ## Project structure
 

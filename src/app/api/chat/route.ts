@@ -14,6 +14,7 @@ import { streamCharacterReply } from "@/lib/anthropic";
 import { rateLimit, clientKey } from "@/lib/rateLimit";
 import { screenText } from "@/lib/moderation";
 import { logger } from "@/lib/logger";
+import { escalateCsae } from "@/lib/safety";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -69,6 +70,11 @@ export async function POST(req: NextRequest) {
         surface: "chat.message",
         userId,
         category: screen.category,
+      });
+      await escalateCsae({
+        surface: "chat.message",
+        userId,
+        reason: screen.reason,
       });
       return new Response("This message violates our content policy.", {
         status: 422,
@@ -131,12 +137,28 @@ export async function POST(req: NextRequest) {
   async function persistPartial() {
     if (saved) return;
     saved = true;
-    const clean = full.trim();
-    if (clean) {
-      await addMessage(conversationId, "assistant", clean);
-      await touchConversation(conversationId);
-      await incrementInteractions(character!.id);
+    let clean = full.trim();
+    if (!clean) return;
+    // Defence-in-depth: screen the model's own output for the hard CSAE line.
+    // Claude's guardrails make this vanishingly unlikely, but if it ever fires
+    // we withhold the text (rather than store it) and escalate.
+    const outScreen = screenText(clean);
+    if (!outScreen.ok && outScreen.category === "csae") {
+      logger.error("moderation.output_blocked", {
+        surface: "chat.output",
+        userId,
+        category: outScreen.category,
+      });
+      await escalateCsae({
+        surface: "chat.output",
+        userId,
+        reason: outScreen.reason,
+      });
+      clean = "[This response was withheld for safety reasons.]";
     }
+    await addMessage(conversationId, "assistant", clean);
+    await touchConversation(conversationId);
+    await incrementInteractions(character!.id);
   }
 
   const stream = new ReadableStream<Uint8Array>({

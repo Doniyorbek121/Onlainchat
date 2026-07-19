@@ -1,5 +1,6 @@
 import type { Character, MessageRole, ReportStatus } from "./types";
 import type {
+  AuditInput,
   CharacterInput,
   CharacterUpdate,
   DataStore,
@@ -8,7 +9,13 @@ import type {
   UserInput,
 } from "./db/store";
 
-export type { CharacterInput, CharacterUpdate, ListCharactersOpts, ReportInput };
+export type {
+  AuditInput,
+  CharacterInput,
+  CharacterUpdate,
+  ListCharactersOpts,
+  ReportInput,
+};
 
 // ---------------------------------------------------------------------------
 // Backend selection: Postgres when DATABASE_URL is set (production), otherwise
@@ -106,6 +113,12 @@ export const listReports = async (status: ReportStatus | "all", limit: number) =
 export const updateReportStatus = async (id: string, status: ReportStatus) =>
   (await store()).updateReportStatus(id, status);
 export const countOpenReports = async () => (await store()).countOpenReports();
+
+// Admin audit log
+export const addAuditLog = async (input: AuditInput) =>
+  (await store()).addAuditLog(input);
+export const listAuditLog = async (limit: number) =>
+  (await store()).listAuditLog(limit);
 
 // Characters
 //

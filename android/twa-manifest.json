@@ -1,0 +1,43 @@
+{
+  "packageId": "com.characterai.app",
+  "host": "your-domain.com",
+  "name": "Character AI",
+  "launcherName": "Character AI",
+  "display": "standalone",
+  "orientation": "portrait",
+  "themeColor": "#0e0e11",
+  "themeColorDark": "#0e0e11",
+  "navigationColor": "#0e0e11",
+  "navigationColorDark": "#0e0e11",
+  "navigationDividerColor": "#0e0e11",
+  "navigationDividerColorDark": "#0e0e11",
+  "backgroundColor": "#0e0e11",
+  "enableNotifications": false,
+  "startUrl": "/",
+  "iconUrl": "https://your-domain.com/icons/icon-512.png",
+  "maskableIconUrl": "https://your-domain.com/icons/icon-maskable-512.png",
+  "monochromeIconUrl": "",
+  "appVersion": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [
+    {
+      "name": "Create a character",
+      "shortName": "Create",
+      "url": "/create",
+      "chosenIconUrl": "https://your-domain.com/icons/icon-192.png"
+    }
+  ],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://your-domain.com/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": { "enabled": false },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://your-domain.com/",
+  "minSdkVersion": 23,
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "appVersionName": "1.0.0"
+}

@@ -4,9 +4,10 @@ import { describe, expect, it, beforeAll } from "vitest";
 delete process.env.REDIS_URL;
 
 let rateLimit: typeof import("@/lib/rateLimit").rateLimit;
+let resetRateLimit: typeof import("@/lib/rateLimit").resetRateLimit;
 
 beforeAll(async () => {
-  ({ rateLimit } = await import("@/lib/rateLimit"));
+  ({ rateLimit, resetRateLimit } = await import("@/lib/rateLimit"));
 });
 
 describe("rateLimit (in-memory)", () => {
@@ -33,5 +34,13 @@ describe("rateLimit (in-memory)", () => {
     const key = `test-${Math.random()}`;
     const a = await rateLimit(key, 5, 60_000);
     expect(a.remaining).toBe(4);
+  });
+
+  it("resetRateLimit clears the counter (account-lockout unlock)", async () => {
+    const key = `test-${Math.random()}`;
+    await rateLimit(key, 1, 60_000); // exhaust
+    expect((await rateLimit(key, 1, 60_000)).ok).toBe(false);
+    await resetRateLimit(key);
+    expect((await rateLimit(key, 1, 60_000)).ok).toBe(true);
   });
 });

@@ -148,6 +148,15 @@ describe.skipIf(!URL)("postgres backend", () => {
     expect(await store.updateReportStatus(rep.id, "resolved")).toBe(true);
     expect(await store.countOpenReports()).toBe(before);
 
+    await store.addAuditLog({
+      adminId: `admin_${suffix}`,
+      action: "delete_character",
+      targetType: "character",
+      targetId: `c_${suffix}`,
+    });
+    const audit = await store.listAuditLog(10);
+    expect(audit.some((a: any) => a.adminId === `admin_${suffix}`)).toBe(true);
+
     await store.deleteUserCascade(u.id);
   });
 

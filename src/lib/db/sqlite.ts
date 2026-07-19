@@ -36,6 +36,16 @@ function mapUser(r: any): User {
     createdAt: r.created_at,
   };
 }
+function mapAudit(r: any) {
+  return {
+    id: r.id,
+    adminId: r.admin_id,
+    action: r.action,
+    targetType: r.target_type ?? "",
+    targetId: r.target_id ?? "",
+    createdAt: r.created_at,
+  };
+}
 function mapReport(r: any): Report {
   return {
     id: r.id,
@@ -130,6 +140,12 @@ export function createSqliteStore(): DataStore {
           status TEXT NOT NULL DEFAULT 'open', created_at INTEGER NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status, created_at DESC);
+        CREATE TABLE IF NOT EXISTS audit_log (
+          id TEXT PRIMARY KEY, admin_id TEXT NOT NULL, action TEXT NOT NULL,
+          target_type TEXT NOT NULL DEFAULT '', target_id TEXT NOT NULL DEFAULT '',
+          created_at INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at DESC);
         CREATE TABLE IF NOT EXISTS characters (
           id TEXT PRIMARY KEY, name TEXT NOT NULL, tagline TEXT NOT NULL DEFAULT '',
           description TEXT NOT NULL DEFAULT '', greeting TEXT NOT NULL DEFAULT '',
@@ -381,6 +397,26 @@ export function createSqliteStore(): DataStore {
       return (
         db.prepare(`SELECT COUNT(*) AS c FROM reports WHERE status = 'open'`).get() as any
       ).c;
+    },
+    async addAuditLog(input) {
+      db.prepare(
+        `INSERT INTO audit_log (id, admin_id, action, target_type, target_id, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)`
+      ).run(
+        `aud_${genId()}`,
+        input.adminId,
+        input.action,
+        input.targetType,
+        input.targetId,
+        Date.now()
+      );
+    },
+    async listAuditLog(limit) {
+      const capped = Math.min(Math.max(limit, 1), 200);
+      return db
+        .prepare(`SELECT * FROM audit_log ORDER BY created_at DESC LIMIT ${capped}`)
+        .all()
+        .map(mapAudit);
     },
     async reassignOwnership(fromId, toId) {
       if (fromId === toId) return;

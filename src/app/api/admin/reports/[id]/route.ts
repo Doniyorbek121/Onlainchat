@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminUser } from "@/lib/auth";
-import { updateReportStatus } from "@/lib/db";
+import { updateReportStatus, addAuditLog } from "@/lib/db";
 import type { ReportStatus } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -32,5 +32,11 @@ export async function PATCH(
 
   const ok = await updateReportStatus(id, status);
   if (!ok) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  await addAuditLog({
+    adminId: admin.id,
+    action: `report_${status}`,
+    targetType: "report",
+    targetId: id,
+  });
   return NextResponse.json({ ok: true });
 }

@@ -17,6 +17,7 @@ import {
   listRecentUsers,
   listRecentCharacters,
   listReports,
+  listAuditLog,
 } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -40,6 +41,7 @@ export default async function AdminPage() {
     recentUsers,
     recentChars,
     reports,
+    auditLog,
     users24h,
     users7d,
     chars24h,
@@ -55,6 +57,7 @@ export default async function AdminPage() {
     listRecentUsers(20),
     listRecentCharacters(20),
     listReports("open", 50),
+    listAuditLog(20),
     countUsersSince(now - DAY),
     countUsersSince(now - 7 * DAY),
     countCharactersSince(now - DAY),
@@ -252,6 +255,38 @@ export default async function AdminPage() {
               </div>
             ))}
           </div>
+        </section>
+
+        {/* Audit log */}
+        <section className="mt-8">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
+            Audit log
+          </h2>
+          {auditLog.length === 0 ? (
+            <div className="card p-6 text-center text-sm text-muted">
+              No admin actions yet.
+            </div>
+          ) : (
+            <div className="card divide-y divide-line">
+              {auditLog.map((a) => (
+                <div
+                  key={a.id}
+                  className="flex items-center justify-between gap-3 p-3 text-sm"
+                >
+                  <span className="font-mono text-xs text-white">
+                    {a.action}
+                    <span className="text-muted">
+                      {" "}
+                      · {a.targetType}:{a.targetId.slice(0, 16)}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-xs text-muted">
+                    {new Date(a.createdAt).toISOString().replace("T", " ").slice(0, 16)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       </main>
     </div>

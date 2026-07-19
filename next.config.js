@@ -74,6 +74,20 @@ const nextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  async rewrites() {
+    // Serve well-known files from configurable API routes (dot-folders aren't
+    // routed by the app router).
+    return [
+      {
+        source: "/.well-known/security.txt",
+        destination: "/api/wellknown/security",
+      },
+      {
+        source: "/.well-known/assetlinks.json",
+        destination: "/api/wellknown/assetlinks",
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;

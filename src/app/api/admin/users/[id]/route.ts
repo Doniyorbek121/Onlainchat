@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminUser } from "@/lib/auth";
-import { deleteUserCascade } from "@/lib/db";
+import { deleteUserCascade, addAuditLog } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,5 +22,11 @@ export async function DELETE(
   }
   const ok = await deleteUserCascade(id);
   if (!ok) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  await addAuditLog({
+    adminId: admin.id,
+    action: "delete_user",
+    targetType: "user",
+    targetId: id,
+  });
   return NextResponse.json({ ok: true });
 }

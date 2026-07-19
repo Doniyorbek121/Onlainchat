@@ -7,6 +7,7 @@ import { validAvatarImage } from "@/lib/validate";
 import { persistAvatar } from "@/lib/storage";
 import { screenCharacterFields, MODERATION_MESSAGE } from "@/lib/moderation";
 import { logger } from "@/lib/logger";
+import { escalateCsae } from "@/lib/safety";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -101,6 +102,13 @@ export async function POST(req: NextRequest) {
       userId: user.id,
       category: screen.category,
     });
+    if (screen.category === "csae") {
+      await escalateCsae({
+        surface: "character.create",
+        userId: user.id,
+        reason: screen.reason,
+      });
+    }
     return NextResponse.json({ error: MODERATION_MESSAGE }, { status: 422 });
   }
 
