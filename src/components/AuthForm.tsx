@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { apiFetch } from "@/lib/http";
 
 export default function AuthForm({ mode }: { mode: "login" | "register" }) {
   const router = useRouter();
@@ -28,7 +29,7 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
       const payload = isLogin
         ? { login, password }
         : { username, email, displayName, password };
-      const res = await fetch(endpoint, {
+      const res = await apiFetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

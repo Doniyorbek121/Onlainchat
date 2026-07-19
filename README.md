@@ -33,6 +33,9 @@ Built as a complete, self-contained full-stack app inspired by projects like
   chats you no longer want.
 - 🛡️ **Rate limiting** — login, registration, chat and character creation are
   throttled per client to resist brute-force and spam.
+- 🧷 **CSRF protection** — a double-submit token (`x-csrf-token` header vs.
+  `oc_csrf` cookie) plus a same-origin check guard every state-changing API
+  request, enforced centrally in middleware.
 - ✅ **Tested & CI** — Vitest unit tests for the data layer and auth, plus a
   GitHub Actions workflow that runs tests and a production build on every push.
 - 🧠 **Claude-powered** — each character becomes a role-played system prompt;
@@ -148,7 +151,10 @@ src/
     rateLimit.ts              In-memory request throttling
     seed.ts                   Starter characters
     session.ts                Auth-aware / anonymous cookie sessions
+    rateLimit.ts / http.ts    Throttling / CSRF-aware fetch wrapper
+    validate.ts               Shared input validation (avatar images)
     types.ts                  Shared types
+  middleware.ts               CSRF (double-submit + same-origin) enforcement
 tests/                        Vitest suites (db + auth)
 .github/workflows/ci.yml      Test + build on every push
 ```

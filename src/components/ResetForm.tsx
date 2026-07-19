@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { apiFetch } from "@/lib/http";
 
 export default function ResetForm() {
   const router = useRouter();
@@ -28,7 +29,7 @@ export default function ResetForm() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/auth/reset", {
+      const res = await apiFetch("/api/auth/reset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, password }),

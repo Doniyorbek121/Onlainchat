@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { apiFetch } from "@/lib/http";
 
 export default function CharacterOwnerActions({
   characterId,
@@ -20,7 +21,7 @@ export default function CharacterOwnerActions({
     setDeleting(true);
     setError(null);
     try {
-      const res = await fetch(`/api/characters/${characterId}`, {
+      const res = await apiFetch(`/api/characters/${characterId}`, {
         method: "DELETE",
       });
       if (!res.ok) {

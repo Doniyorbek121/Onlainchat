@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { apiFetch } from "@/lib/http";
 
 export default function ForgotForm() {
   const [email, setEmail] = useState("");
@@ -15,7 +16,7 @@ export default function ForgotForm() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/auth/forgot", {
+      const res = await apiFetch("/api/auth/forgot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),

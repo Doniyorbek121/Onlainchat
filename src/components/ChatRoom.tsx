@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Avatar from "./Avatar";
+import { apiFetch } from "@/lib/http";
 import type { Character, Message } from "@/lib/types";
 
 interface ChatMessage {
@@ -79,7 +80,7 @@ export default function ChatRoom({
     setSending(true);
 
     try {
-      const res = await fetch("/api/chat", {
+      const res = await apiFetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

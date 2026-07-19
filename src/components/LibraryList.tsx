@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Avatar from "./Avatar";
+import { apiFetch } from "@/lib/http";
 
 export interface LibraryItem {
   conversationId: string;
@@ -33,7 +34,7 @@ export default function LibraryList({ items }: { items: LibraryItem[] }) {
 
   async function remove(conversationId: string) {
     setBusy(conversationId);
-    const res = await fetch(`/api/conversations/${conversationId}`, {
+    const res = await apiFetch(`/api/conversations/${conversationId}`, {
       method: "DELETE",
     });
     if (res.ok) {

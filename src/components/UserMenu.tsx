@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { apiFetch } from "@/lib/http";
 import type { User } from "@/lib/types";
 
 export default function UserMenu({ user }: { user: User }) {
@@ -12,7 +13,7 @@ export default function UserMenu({ user }: { user: User }) {
 
   async function logout() {
     setLoading(true);
-    await fetch("/api/auth/logout", { method: "POST" });
+    await apiFetch("/api/auth/logout", { method: "POST" });
     setOpen(false);
     router.push("/");
     router.refresh();

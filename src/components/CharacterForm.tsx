@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Avatar from "@/components/Avatar";
+import { apiFetch } from "@/lib/http";
 import {
   CATEGORIES,
   AVATAR_COLORS,
@@ -77,7 +78,7 @@ export default function CharacterForm({
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         isEdit ? `/api/characters/${character!.id}` : "/api/characters",
         {
           method: isEdit ? "PATCH" : "POST",
