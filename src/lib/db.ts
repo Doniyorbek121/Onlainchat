@@ -120,3 +120,5 @@ export const addMessage = async (
 ) => (await store()).addMessage(conversationId, role, content);
 export const listMessages = async (conversationId: string) =>
   (await store()).listMessages(conversationId);
+export const deleteLastAssistantMessage = async (conversationId: string) =>
+  (await store()).deleteLastAssistantMessage(conversationId);

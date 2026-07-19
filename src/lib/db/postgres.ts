@@ -417,5 +417,16 @@ export function createPostgresStore(connectionString: string): DataStore {
       );
       return r.rows.map(mapMessage);
     },
+    async deleteLastAssistantMessage(conversationId) {
+      const r = await q(
+        `DELETE FROM messages WHERE id = (
+           SELECT id FROM messages
+           WHERE conversation_id = $1 AND role = 'assistant'
+           ORDER BY created_at DESC LIMIT 1
+         )`,
+        [conversationId]
+      );
+      return (r.rowCount ?? 0) > 0;
+    },
   };
 }

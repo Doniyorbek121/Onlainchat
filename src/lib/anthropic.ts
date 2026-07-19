@@ -60,21 +60,26 @@ export function toClaudeMessages(
  */
 export async function* streamCharacterReply(
   character: Character,
-  history: Message[]
+  history: Message[],
+  signal?: AbortSignal
 ): AsyncGenerator<string> {
   if (!hasApiKey()) {
-    yield* offlineReply(character, history);
+    yield* offlineReply(character, history, signal);
     return;
   }
 
-  const stream = getClient().messages.stream({
-    model: MODEL,
-    max_tokens: 1024,
-    system: buildSystemPrompt(character),
-    messages: toClaudeMessages(history),
-  });
+  const stream = getClient().messages.stream(
+    {
+      model: MODEL,
+      max_tokens: 1024,
+      system: buildSystemPrompt(character),
+      messages: toClaudeMessages(history),
+    },
+    { signal }
+  );
 
   for await (const event of stream) {
+    if (signal?.aborted) break;
     if (
       event.type === "content_block_delta" &&
       event.delta.type === "text_delta"
@@ -87,7 +92,8 @@ export async function* streamCharacterReply(
 /** Simple offline persona-flavoured reply used when no API key is present. */
 async function* offlineReply(
   character: Character,
-  history: Message[]
+  history: Message[],
+  signal?: AbortSignal
 ): AsyncGenerator<string> {
   const last = [...history].reverse().find((m) => m.role === "user");
   const userText = last?.content.trim() || "";
@@ -100,6 +106,7 @@ async function* offlineReply(
     `Add an ANTHROPIC_API_KEY to bring me fully to life and I'll respond in character as ${character.name}.`;
 
   for (const chunk of chunkText(reply)) {
+    if (signal?.aborted) break;
     await new Promise((r) => setTimeout(r, 18));
     yield chunk;
   }

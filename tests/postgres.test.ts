@@ -101,6 +101,13 @@ describe.skipIf(!URL)("postgres backend", () => {
     await store.addMessage(conv.id, "assistant", "hi");
     expect(await store.listMessages(conv.id)).toHaveLength(2);
 
+    // Regenerate: drop only the trailing assistant message
+    expect(await store.deleteLastAssistantMessage(conv.id)).toBe(true);
+    expect((await store.listMessages(conv.id)).map((m: any) => m.role)).toEqual([
+      "user",
+    ]);
+    await store.addMessage(conv.id, "assistant", "hi2");
+
     expect(await store.deleteCharacter(pub.id, other)).toBe(false);
     expect(await store.deleteCharacter(pub.id, owner)).toBe(true);
     expect(await store.getConversation(conv.id)).toBeNull();

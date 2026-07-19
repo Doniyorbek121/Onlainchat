@@ -118,6 +118,7 @@ export interface DataStore {
     content: string
   ): Promise<Message>;
   listMessages(conversationId: string): Promise<Message[]>;
+  deleteLastAssistantMessage(conversationId: string): Promise<boolean>;
 }
 
 /** Shared id generator for both backends. */

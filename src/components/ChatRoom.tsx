@@ -58,36 +58,23 @@ export default function ChatRoom({
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }
 
-  async function send() {
-    const text = input.trim();
-    if (!text || sending) return;
+  const abortRef = useRef<AbortController | null>(null);
 
+  async function runStream(
+    payload: Record<string, unknown>,
+    assistantId: string
+  ) {
     setError(null);
-    setInput("");
-    requestAnimationFrame(autoGrow);
-
-    const userMsg: ChatMessage = {
-      id: `u-${Date.now()}`,
-      role: "user",
-      content: text,
-    };
-    const assistantId = `a-${Date.now()}`;
-    setMessages((m) => [
-      ...m,
-      userMsg,
-      { id: assistantId, role: "assistant", content: "", streaming: true },
-    ]);
     setSending(true);
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     try {
       const res = await apiFetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          characterId: character.id,
-          conversationId,
-          message: text,
-        }),
+        body: JSON.stringify(payload),
+        signal: controller.signal,
       });
 
       if (!res.ok || !res.body) {
@@ -128,8 +115,12 @@ export default function ChatRoom({
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
+      // Abort (stop button) is expected — keep the partial reply, no error.
+      if (!(err instanceof DOMException && err.name === "AbortError")) {
+        setError(err instanceof Error ? err.message : "Something went wrong.");
+      }
     } finally {
+      abortRef.current = null;
       setMessages((m) =>
         m.map((msg) =>
           msg.id === assistantId ? { ...msg, streaming: false } : msg
@@ -140,12 +131,61 @@ export default function ChatRoom({
     }
   }
 
+  async function send() {
+    const text = input.trim();
+    if (!text || sending) return;
+
+    setInput("");
+    requestAnimationFrame(autoGrow);
+
+    const assistantId = `a-${Date.now()}`;
+    setMessages((m) => [
+      ...m,
+      { id: `u-${Date.now()}`, role: "user", content: text },
+      { id: assistantId, role: "assistant", content: "", streaming: true },
+    ]);
+
+    await runStream(
+      { characterId: character.id, conversationId, message: text },
+      assistantId
+    );
+  }
+
+  async function regenerate() {
+    if (sending || !conversationId) return;
+    const assistantId = `a-${Date.now()}`;
+    setMessages((m) => {
+      const copy = [...m];
+      if (copy.length && copy[copy.length - 1].role === "assistant") copy.pop();
+      return [
+        ...copy,
+        { id: assistantId, role: "assistant", content: "", streaming: true },
+      ];
+    });
+    await runStream(
+      { characterId: character.id, conversationId, regenerate: true },
+      assistantId
+    );
+  }
+
+  function stop() {
+    abortRef.current?.abort();
+  }
+
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       send();
     }
   }
+
+  const canRegenerate =
+    !sending &&
+    Boolean(conversationId) &&
+    messages.length > 0 &&
+    messages[messages.length - 1].role === "assistant" &&
+    messages[messages.length - 1].id !== "greeting" &&
+    messages.some((m) => m.role === "user");
 
   return (
     <div className="flex h-screen flex-col bg-bg">
@@ -194,6 +234,16 @@ export default function ChatRoom({
           {messages.map((m) => (
             <Bubble key={m.id} message={m} character={character} />
           ))}
+          {canRegenerate && (
+            <div className="flex justify-center">
+              <button
+                onClick={regenerate}
+                className="flex items-center gap-1.5 rounded-full border border-line bg-bg-card px-4 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-bg-hover hover:text-white"
+              >
+                ↻ Regenerate
+              </button>
+            </div>
+          )}
           {error && (
             <div className="mx-auto rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-300">
               {error}
@@ -217,20 +267,25 @@ export default function ChatRoom({
             placeholder={`Message ${character.name}…`}
             className="input max-h-40 resize-none py-3"
           />
-          <button
-            onClick={send}
-            disabled={sending || !input.trim()}
-            className="btn-primary h-[46px] w-[46px] shrink-0 !px-0"
-            aria-label="Send"
-          >
-            {sending ? (
-              <span className="flex gap-1">
-                <Dot /> <Dot /> <Dot />
-              </span>
-            ) : (
+          {sending ? (
+            <button
+              onClick={stop}
+              className="btn h-[46px] w-[46px] shrink-0 !px-0 border border-line bg-bg-card text-white hover:bg-bg-hover"
+              aria-label="Stop generating"
+              title="Stop"
+            >
+              <span className="block h-3 w-3 rounded-[3px] bg-current" />
+            </button>
+          ) : (
+            <button
+              onClick={send}
+              disabled={!input.trim()}
+              className="btn-primary h-[46px] w-[46px] shrink-0 !px-0"
+              aria-label="Send"
+            >
               <span className="text-lg leading-none">↑</span>
-            )}
-          </button>
+            </button>
+          )}
         </div>
         <p className="mx-auto mt-2 max-w-3xl text-center text-[11px] text-muted/70">
           {character.name} is an AI character. Messages may be inaccurate — keep

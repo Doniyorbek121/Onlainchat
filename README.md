@@ -19,7 +19,8 @@ Built as a complete, self-contained full-stack app inspired by projects like
   dev) so self-hosters can use the flow with zero setup.
 - 🧭 **Discovery** — browse trending characters, filter by category, and search.
 - 💬 **Real-time chat** — token-by-token streaming replies, persisted history,
-  auto-resume of past conversations.
+  auto-resume of past conversations. **Stop** a reply mid-stream (the partial
+  text is kept and saved) or **regenerate** the last reply for a fresh take.
 - 🎨 **Character creator & editor** — name, tagline, description, greeting, full
   personality/behaviour prompt, avatar (upload a **photo**, or pick an emoji +
   colour), category and visibility, with a live preview. Uploaded photos are

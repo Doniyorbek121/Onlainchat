@@ -116,6 +116,22 @@ describe("characters", () => {
     expect(ownerList.some((x: any) => x.id === priv.id)).toBe(true);
   });
 
+  it("deletes only the most recent assistant message (for regenerate)", async () => {
+    const c = await make();
+    const conv = await db.createConversation(c.id, owner, "chat");
+    await db.addMessage(conv.id, "user", "q1");
+    await db.addMessage(conv.id, "assistant", "a1");
+    await db.addMessage(conv.id, "user", "q2");
+    await db.addMessage(conv.id, "assistant", "a2");
+
+    expect(await db.deleteLastAssistantMessage(conv.id)).toBe(true);
+    const after = await db.listMessages(conv.id);
+    expect(after.map((m: any) => m.content)).toEqual(["q1", "a1", "q2"]);
+    // No assistant left after another delete removes a1; then none remain
+    expect(await db.deleteLastAssistantMessage(conv.id)).toBe(true);
+    expect(await db.deleteLastAssistantMessage(conv.id)).toBe(false);
+  });
+
   it("cascades conversations and messages on delete", async () => {
     const c = await make();
     const conv = await db.createConversation(c.id, owner, "chat");

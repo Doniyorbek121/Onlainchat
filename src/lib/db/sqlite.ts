@@ -400,5 +400,17 @@ export function createSqliteStore(): DataStore {
         .all(conversationId);
       return rows.map(mapMessage);
     },
+    async deleteLastAssistantMessage(conversationId) {
+      const res = db
+        .prepare(
+          `DELETE FROM messages WHERE id = (
+             SELECT id FROM messages
+             WHERE conversation_id = ? AND role = 'assistant'
+             ORDER BY created_at DESC LIMIT 1
+           )`
+        )
+        .run(conversationId);
+      return res.changes > 0;
+    },
   };
 }

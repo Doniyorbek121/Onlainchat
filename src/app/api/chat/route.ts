@@ -8,6 +8,7 @@ import {
   listMessages,
   touchConversation,
   incrementInteractions,
+  deleteLastAssistantMessage,
 } from "@/lib/db";
 import { streamCharacterReply } from "@/lib/anthropic";
 import { rateLimit, clientKey } from "@/lib/rateLimit";
@@ -33,16 +34,25 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  let body: { characterId?: string; conversationId?: string; message?: string };
+  let body: {
+    characterId?: string;
+    conversationId?: string;
+    message?: string;
+    regenerate?: boolean;
+  };
   try {
     body = await req.json();
   } catch {
     return new Response("Invalid JSON", { status: 400 });
   }
 
+  const regenerate = body.regenerate === true;
   const message = (body.message || "").trim();
-  if (!body.characterId || !message) {
-    return new Response("characterId and message are required", { status: 400 });
+  if (!body.characterId) {
+    return new Response("characterId is required", { status: 400 });
+  }
+  if (!regenerate && !message) {
+    return new Response("message is required", { status: 400 });
   }
   if (message.length > 4000) {
     return new Response("Message is too long.", { status: 400 });
@@ -58,58 +68,99 @@ export async function POST(req: NextRequest) {
     return new Response("Character not found", { status: 404 });
   }
 
-  // Use the given conversation when it belongs to this user + character,
-  // otherwise start a fresh one (this is what enables multiple chats and
-  // the "New chat" action).
   let conversation = body.conversationId
     ? await getConversation(body.conversationId)
     : null;
+  const owned =
+    conversation &&
+    conversation.userId === userId &&
+    conversation.characterId === character.id;
 
-  if (
-    !conversation ||
-    conversation.userId !== userId ||
-    conversation.characterId !== character.id
-  ) {
-    conversation = await createConversation(
-      character.id,
-      userId,
-      message.slice(0, 60)
-    );
+  if (regenerate) {
+    // Regeneration requires an existing, owned conversation. Drop the last
+    // assistant reply so we respond afresh to the trailing user message.
+    if (!owned || !conversation) {
+      return new Response("Conversation not found", { status: 404 });
+    }
+    await deleteLastAssistantMessage(conversation.id);
+  } else {
+    // Normal turn: reuse the owned conversation or start a fresh one.
+    if (!owned) {
+      conversation = await createConversation(
+        character.id,
+        userId,
+        message.slice(0, 60)
+      );
+    }
+    await addMessage(conversation!.id, "user", message);
   }
-  const conversationId = conversation.id;
 
-  // Persist the user's message, then load full history for context.
-  await addMessage(conversationId, "user", message);
+  const conversationId = conversation!.id;
   const history = await listMessages(conversationId);
+  if (history.length === 0) {
+    return new Response("Nothing to respond to", { status: 400 });
+  }
+
+  let full = "";
+  let saved = false;
+  async function persistPartial() {
+    if (saved) return;
+    saved = true;
+    const clean = full.trim();
+    if (clean) {
+      await addMessage(conversationId, "assistant", clean);
+      await touchConversation(conversationId);
+      await incrementInteractions(character!.id);
+    }
+  }
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       controller.enqueue(sse("meta", { conversationId }));
 
-      let full = "";
       try {
-        for await (const delta of streamCharacterReply(character, history)) {
+        for await (const delta of streamCharacterReply(
+          character,
+          history,
+          req.signal
+        )) {
           full += delta;
           controller.enqueue(sse("delta", { text: delta }));
         }
       } catch (err) {
-        const messageText =
-          err instanceof Error ? err.message : "Unknown error";
+        // Client abort (stop button / disconnect): keep what we streamed.
+        if (req.signal.aborted || (err as Error)?.name === "AbortError") {
+          await persistPartial();
+          try {
+            controller.close();
+          } catch {
+            /* already closed */
+          }
+          return;
+        }
+        const messageText = err instanceof Error ? err.message : "Unknown error";
         controller.enqueue(
           sse("error", { message: `The character couldn't reply: ${messageText}` })
         );
-        controller.close();
+        try {
+          controller.close();
+        } catch {
+          /* already closed */
+        }
         return;
       }
 
-      const clean = full.trim();
-      if (clean) {
-        await addMessage(conversationId, "assistant", clean);
-        await touchConversation(conversationId);
-        await incrementInteractions(character.id);
+      await persistPartial();
+      try {
+        controller.enqueue(sse("done", { conversationId }));
+        controller.close();
+      } catch {
+        /* client already gone */
       }
-      controller.enqueue(sse("done", { conversationId }));
-      controller.close();
+    },
+    async cancel() {
+      // Consumer went away mid-stream — persist whatever we have.
+      await persistPartial();
     },
   });
 
